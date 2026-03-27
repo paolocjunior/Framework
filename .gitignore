@@ -1,0 +1,18 @@
+# Local settings (session-specific permissions)
+.claude/settings.local.json
+
+# Runtime session data (generated during use)
+.claude/runtime/session-summaries/latest.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node (if docx generation is run locally)
+node_modules/
+package.json
+package-lock.json
+
+# Temp files
+*.tmp
+/tmp/
