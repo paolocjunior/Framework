@@ -12,13 +12,6 @@ fi
 
 BASENAME=$(basename "$FILE_PATH")
 
-# Bloquear TODOS os arquivos .env* (cobre .env, .env.local, .env.production,
-# .env.development, .env.test, .env.staging, .env.secrets, etc.)
-if [[ "$BASENAME" == .env* ]]; then
-    echo "BLOQUEADO: $FILE_PATH e um arquivo de ambiente (.env*). Editar manualmente." >&2
-    exit 2
-fi
-
 # Lockfiles protegidos
 PROTECTED_LOCKFILES=(
     "package-lock.json"

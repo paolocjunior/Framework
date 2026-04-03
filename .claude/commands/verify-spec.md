@@ -1,0 +1,171 @@
+---
+description: Verificação pós-implementação — confirma se o código entregue corresponde ao que a especificação prometeu
+allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(wc:*), Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(python:*), Bash(pip:*)
+---
+
+Verificar se o código implementado entrega o que a especificação original prometeu.
+
+Este comando NÃO avalia qualidade de código (use `/review` para isso) nem prontidão para deploy (use `/ship-check`). Ele avalia exclusivamente: **o que foi pedido está funcionando?**
+
+---
+
+## Passo 1 — Localizar a especificação
+
+Buscar o documento de referência do projeto. Pode ser:
+- Arquivo de spec/briefing (.md) na raiz ou em .planning/
+- REQUIREMENTS.md, PROJECT.md, spec.md, briefing.md
+- Documento indicado pelo usuário
+
+Se não encontrar especificação, perguntar ao usuário qual documento usar como referência.
+
+## Passo 2 — Extrair entregas testáveis e gerar cenários de teste
+
+### 2.1 — Extrair entregas
+
+Ler a especificação e extrair uma lista de entregas concretas e verificáveis. Cada entrega deve ser uma ação que o usuário deveria conseguir fazer.
+
+Formato:
+```
+| # | Entrega esperada | Fonte na spec |
+|---|-----------------|---------------|
+| 1 | Usuário consegue criar conta com email e senha | Requisito funcional 1 |
+| 2 | Login retorna token JWT válido | Requisito funcional 2 |
+| 3 | Produto sem estoque mostra "indisponível" | Regra de negócio 5 |
+```
+
+### 2.2 — Gerar cenários de teste por entrega
+
+Para cada entrega extraída, gerar de 2 a 5 cenários de teste concretos. Os cenários devem cobrir:
+
+- **Caminho feliz**: o fluxo principal funciona como esperado
+- **Entrada inválida**: o que acontece com dados incorretos, vazios ou malformados
+- **Limites**: valores no limite do aceitável (máximo, mínimo, zero)
+- **Casos de borda**: situações atípicas mas plausíveis (duplicata, concorrência, estado inesperado)
+
+A quantidade de cenários deve ser proporcional à complexidade da entrega:
+- Entrega simples (exibir texto, redirecionar): 2 cenários
+- Entrega com validação ou lógica condicional: 3-4 cenários
+- Entrega com regra de negócio complexa ou fluxo financeiro: 4-5 cenários
+
+Formato:
+```
+### Entrega 1: Usuário consegue criar conta com email e senha
+
+| ID | Cenário | Tipo | Resultado esperado |
+|----|---------|------|--------------------|
+| 1.1 | Criar conta com email válido e senha forte | Caminho feliz | Conta criada, redirecionado para dashboard |
+| 1.2 | Criar conta com email já existente | Caso de borda | Erro informativo, sem duplicação no banco |
+| 1.3 | Criar conta com senha menor que o mínimo | Entrada inválida | Validação rejeita, mensagem clara ao usuário |
+| 1.4 | Criar conta com email malformado | Entrada inválida | Validação rejeita antes de chegar ao banco |
+
+### Entrega 2: Login retorna token JWT válido
+
+| ID | Cenário | Tipo | Resultado esperado |
+|----|---------|------|--------------------|
+| 2.1 | Login com credenciais corretas | Caminho feliz | Token JWT retornado com expiração definida |
+| 2.2 | Login com senha incorreta | Entrada inválida | Erro genérico, sem revelar se email existe |
+| 2.3 | Login com conta desativada | Caso de borda | Acesso negado com mensagem apropriada |
+```
+
+### 2.3 — Aprovação do usuário
+
+Apresentar as entregas com seus cenários ao usuário e perguntar: "Essas são as entregas e cenários que vou verificar. Quer adicionar, remover ou ajustar algum?"
+
+## Passo 3 — Verificar cada cenário contra o código
+
+Para cada cenário de cada entrega, verificar no código se existe implementação que o suporte.
+
+### 3.1 — Verificação por cenário
+
+Para cada cenário, reportar:
+
+| ID | Cenário | Status | Evidência | Lacuna |
+|----|---------|--------|-----------|--------|
+| 1.1 | Criar conta com email válido e senha forte | COBERTO | `src/auth/register.ts:45` — handler cria usuário e retorna 201 | — |
+| 1.2 | Criar conta com email já existente | COBERTO | `src/auth/register.ts:52` — catch de unique constraint retorna 409 | — |
+| 1.3 | Criar conta com senha menor que o mínimo | NÃO COBERTO | — | Sem validação de tamanho mínimo de senha no handler ou middleware |
+| 1.4 | Criar conta com email malformado | PARCIAL | `src/auth/register.ts:40` — regex básica de email | Regex não cobre todos os formatos inválidos |
+
+Definição de status por cenário:
+- **COBERTO** — código trata explicitamente este cenário, evidência concreta encontrada
+- **PARCIAL** — cenário parcialmente tratado, mas com lacuna identificada
+- **NÃO COBERTO** — não encontrou código que trate este cenário
+- **NÃO VERIFICÁVEL** — cenário depende de execução/ambiente que não pode ser testado por análise estática
+
+### 3.2 — Resumo por entrega
+
+Após verificar todos os cenários de uma entrega, consolidar o status da entrega:
+
+| # | Entrega | Status | Cenários cobertos | Cenários total |
+|---|---------|--------|-------------------|----------------|
+| 1 | Criar conta com email e senha | PARCIAL | 2/4 | 4 |
+| 2 | Login retorna token JWT | IMPLEMENTADO | 3/3 | 3 |
+
+Regras de consolidação:
+- **IMPLEMENTADO** — todos os cenários COBERTOS
+- **PARCIAL** — pelo menos 1 cenário COBERTO e pelo menos 1 NÃO COBERTO ou PARCIAL
+- **NÃO IMPLEMENTADO** — nenhum cenário COBERTO (caminho feliz ausente)
+- **NÃO VERIFICÁVEL** — todos os cenários são NÃO VERIFICÁVEIS
+
+## Passo 4 — Verificações dinâmicas (quando possível)
+
+Se o projeto tiver testes, build ou servidor local configurado, tentar executar verificações dinâmicas para cenários marcados como "NÃO VERIFICÁVEL":
+
+- Rodar testes existentes que cubram o cenário
+- Tentar build pra confirmar que compila
+- Verificar outputs de comandos relevantes
+
+Atualizar o status dos cenários verificados dinamicamente.
+
+## Passo 5 — Resumo
+
+Ao final, gerar:
+
+### Aderência à Especificação — Entregas
+- Total de entregas: X
+- Implementadas: X (Y%)
+- Parciais: X
+- Não implementadas: X
+- Não verificáveis: X
+
+### Cobertura de Cenários
+- Total de cenários gerados: X
+- Cobertos: X (Y%)
+- Parciais: X
+- Não cobertos: X
+- Não verificáveis: X
+
+### Cenários não cobertos (por prioridade)
+
+Lista dos cenários NÃO COBERTOS agrupados por tipo:
+
+**Entrada inválida sem tratamento:**
+- (lista de cenários de validação ausente)
+
+**Casos de borda sem tratamento:**
+- (lista de cenários de borda não cobertos)
+
+**Limites sem verificação:**
+- (lista de cenários de limite não verificados)
+
+### Entregas que divergem da spec
+Lista das entregas PARCIAIS e NÃO IMPLEMENTADAS com o que falta.
+
+### Entregas implementadas mas não especificadas
+Se encontrar funcionalidades no código que não estão na spec, listar como "Escopo extra não especificado" — podem ser boas adições ou scope creep.
+
+### Veredicto
+- **CONFORME** — todas as entregas da spec estão implementadas e todos os cenários estão cobertos
+- **CONFORME COM LACUNAS** — entregas implementadas, mas cenários de validação, borda ou limite não cobertos (listar os cenários)
+- **NÃO CONFORME** — entregas críticas da spec não foram implementadas
+
+### Próximos passos
+- Lista priorizada do que falta implementar (se houver)
+- Cenários não cobertos que representam risco de segurança ou integridade
+- Entregas que precisam de teste manual do usuário
+
+---
+
+NÃO fazer correções automaticamente. Apenas reportar e aguardar aprovação.
+
+Seguir os padrões de `.claude/rules/self-verification.md` e `.claude/rules/evidence-tracing.md` para cada verificação.

@@ -36,6 +36,30 @@ Usar exclusivamente os seguintes valores normalizados ao atualizar o ledger:
 - Em sessão nova, o Claude Code deve ler o ledger antes de qualquer ação para entender o estado do projeto
 - Cada atualização deve incluir a data (Last Updated) no item modificado
 
+## Relatório de Fase
+
+Ao final de cada fase, antes de solicitar aprovação do usuário, gerar relatório consolidado incluindo:
+
+- O que foi implementado (resumo)
+- Resultado da validação cross-model (Codex): findings aceitos, rejeitados, ações tomadas
+- Pontos de concordância entre Claude Code e Codex
+- Divergências e como foram resolvidas
+- Status final da fase
+
+O relatório é o artefato que o usuário revisa para autorizar a próxima fase. Ver formato completo em `CLAUDE.md` seção "Relatório de fase".
+
+## Sincronização com Memória
+
+O ledger não opera sozinho. Ele faz parte de um trio de sincronização com o sistema de memória do Claude Code. Ver `.claude/rules/state-sync.md` para o protocolo completo.
+
+Regra resumida: **ao atualizar o ledger, atualizar também o snapshot de memória (`project_spec-status.md`) e o índice (`MEMORY.md`) na mesma operação.** Nunca atualizar apenas o ledger sem sincronizar a memória.
+
+Commands que geram veredicto (/spec-check, /ship-check, /review, /audit, /verify-spec) devem atualizar os 3 arquivos ao final da execução.
+
 ## Bootstrap
 
-O template do ledger faz parte do framework base e é copiado junto com `.claude/` para cada novo projeto. O primeiro command que gera veredicto (normalmente `/spec-check`) preenche os dados iniciais.
+O template do ledger faz parte do framework base e é copiado junto com `.claude/` para cada novo projeto. O primeiro command que gera veredicto (normalmente `/spec-check`) deve:
+
+1. Preencher o `runtime/execution-ledger.md` com os dados iniciais
+2. Criar o snapshot de memória (`project_spec-status.md`) usando o template em `runtime/project-status.template.md`
+3. Adicionar o ponteiro no `MEMORY.md` do projeto

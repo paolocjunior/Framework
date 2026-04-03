@@ -2,12 +2,7 @@
 set -euo pipefail
 
 # mock-determinism.sh — Validação de determinismo em mocks e componentes
-# Perfil: strict (não roda em minimal nem standard)
 # Roda após Edit/Write/MultiEdit — reporta via JSON systemMessage
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/profile-guard.sh"
-require_profile "strict"
 
 FILE_PATH=$(jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null || echo "")
 

@@ -2,12 +2,7 @@
 set -euo pipefail
 
 # quality-check.sh — Contagem de TODO/FIXME/HACK/XXX
-# Perfil: standard+ (não roda em minimal)
 # Roda após Edit/Write/MultiEdit — reporta via JSON systemMessage
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/profile-guard.sh"
-require_profile "standard"
 
 FILE_PATH=$(jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null || echo "")
 
