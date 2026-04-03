@@ -102,7 +102,23 @@ Remover rotas conflitantes. Definir abordagem única. Corrigir contagem.
 
 ---
 
-## Passo 6 — Checklist vs Corpo do Plano
+## Passo 6 — Contagens vs Código Real
+
+Verificar que contagens no plano (endpoints, telas, tabelas, rotas) batem com o código real do projeto.
+
+### Perguntas obrigatórias
+
+- Se o plano diz "X endpoints", contar endpoints reais no código do backend (grep nos routers/routes) — não confiar na spec ou em contagem mental
+- Se o plano diz "Y telas", contar telas reais na navegação — não confiar na listagem do plano anterior
+- Se o plano diz "Z tabelas", contar tabelas reais no schema/migrations — não confiar na spec
+
+### Se a contagem divergir
+
+Corrigir o plano para refletir a contagem real. Se o backend tem 18 endpoints e o plano diz 12, o plano está errado — não o backend.
+
+---
+
+## Passo 7 — Checklist vs Corpo do Plano
 
 Verificar que a seção de verificação/checklist do plano não promete nada que não esteja definido no corpo.
 

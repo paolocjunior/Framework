@@ -62,6 +62,27 @@
 - [ ] Health check configurado para o serviço de banco
 - [ ] Banco em rede Docker isolada (não na rede default/host)
 
+## Concorrência e Locks
+
+- [ ] Operações que modificam recursos compartilhados (saldo, estoque, contadores) usam transactions atômicas
+- [ ] Advisory locks ou SELECT FOR UPDATE em operações que exigem exclusão mútua
+- [ ] Lock aplicado desde o início do módulo — não adicionado retroativamente quando race condition é descoberta
+- [ ] Operações de toggle (like/unlike, follow/unfollow) usam constraint de unicidade ou lock
+- [ ] Módulos novos que manipulam recursos concorrentes devem ter lock planejado no /plan, não descoberto no /review
+
+## Row Level Security (RLS)
+
+- [ ] RLS habilitado em tabelas com dados de usuários quando o banco suporta (PostgreSQL, Supabase)
+- [ ] Políticas RLS definidas por operação (SELECT, INSERT, UPDATE, DELETE)
+- [ ] Tabelas filhas e auxiliares (categories, tags, servings, attachments) também têm RLS — não apenas a tabela principal
+- [ ] RLS não depende apenas do frontend para filtrar dados — é enforcement no banco
+
+## Tipos de Dados
+
+- [ ] Valores monetários (amount, balance, price, total, discount) usam DECIMAL/NUMERIC — nunca FLOAT/REAL/DOUBLE
+- [ ] Campos de percentual que participam de cálculos financeiros usam DECIMAL
+- [ ] Timestamps com timezone quando o sistema opera em múltiplos fusos
+
 ## Backup e Recuperação
 
 - [ ] Estratégia de backup mencionada ou configurada

@@ -115,6 +115,24 @@ Estados existem no type mas nenhum item do mock os exercita. Badge ou componente
 
 ---
 
+## Categoria 5 — Integração Frontend ↔ Backend
+
+### Padrão 14: Types do frontend vs schemas reais do backend
+
+Frontend cria types baseados na spec ou no mock. Backend implementa schemas independentemente. Na integração, campos têm nomes diferentes, enums têm valores diferentes, shapes divergem.
+
+- **O que acontece:** Tudo compila mas falha em runtime (`undefined`, dados não renderizam, filtros não funcionam). Pode afetar 30+ campos numa única fase.
+- **Como evitar:** Antes de planejar integração, comparar types do frontend com schemas/models reais do backend (não com a spec). Nomes, enums e shapes devem ser idênticos. Se divergem, alinhar ANTES de implementar.
+
+### Padrão 15: Resposta paginada acessada como array direto
+
+Mock retorna array simples (`[item1, item2]`). API retorna objeto paginado (`{ items: [], total, page }`). Tela mantém o acesso do mock sem ajustar.
+
+- **O que acontece:** Tela quebra em runtime porque `.map()` é chamado num objeto, não num array. Ou renderiza "[object Object]".
+- **Como evitar:** Ao migrar de mock para API, verificar o shape real da resposta do endpoint. Se é paginado, ajustar acesso para `.data.items` (ou equivalente). Ver `.claude/rules/integration-checklist.md`.
+
+---
+
 ## Como usar esta rule
 
 Ao criar um plano de implementação:
@@ -123,4 +141,5 @@ Ao criar um plano de implementação:
 2. Revisar cada tela e componente contra os padrões 5-9
 3. Revisar a navegação contra os padrões 10-11
 4. Revisar os mocks contra os padrões 12-13
-5. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final
+5. Revisar integração frontend↔backend contra os padrões 14-15
+6. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final

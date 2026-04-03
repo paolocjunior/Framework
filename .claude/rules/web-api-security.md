@@ -24,6 +24,8 @@
 - [ ] Endpoints administrativos ou internos não ficam acessíveis apenas por "esconder no frontend"
 - [ ] Rotas não documentadas, legadas ou órfãs são removidas ou protegidas
 - [ ] APIs internas usam autenticação/autorização mesmo quando não referenciadas na interface
+- [ ] Background jobs, cron endpoints e webhooks internos protegidos por autenticação (não expostos como endpoints HTTP públicos)
+- [ ] Endpoints de administração, health-check detalhado e métricas internas não acessíveis sem autenticação
 
 ## Autorização e Controle de Acesso
 
@@ -37,6 +39,7 @@
 - [ ] Endpoints de listagem não expõem recursos de outros usuários sem permissão explícita
 - [ ] Operações destrutivas (delete, update) verificam permissão antes de executar
 - [ ] Proteção contra IDOR/BOLA: IDs de recursos não podem ser usados para acessar ou alterar dados de outros usuários sem validação server-side
+- [ ] IDOR em recursos filhos/relacionados: se o recurso pai tem ownership validado, os recursos filhos (servings, categories, tags, attachments) também DEVEM validar ownership — não herdar implicitamente do pai
 - [ ] Proteção contra mass assignment: rotas de update (PATCH/PUT) usam allowlist explícita de campos editáveis; nunca aceitar o body inteiro sem filtrar
 - [ ] ID do usuário vem SEMPRE da sessão/JWT, nunca do body da requisição
 

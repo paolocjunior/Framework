@@ -16,6 +16,8 @@
 - Quando trabalho for dividido, adiado, parcialmente aprovado ou bloqueado, registrar explicitamente no execution ledger. Não tratar aprovação parcial como conclusão. Não iniciar fases posteriores ignorando pendências de fases anteriores
 - Após 2-3 tentativas de correção na mesma área sem sucesso, parar o loop de fix e produzir diagnóstico de causa-raiz antes de continuar. Não fazer cadeia longa de correções cegas sem revisar o que mudou e por quê
 - Nenhuma implementação é trivial demais para o workflow. Mesmo um fix de 1 linha deve seguir o ciclo: ler contexto, planejar, apresentar plano, aguardar aprovação, implementar, validar, justificar. Racionalizar que algo é "simples demais para planejar" é o padrão de erro mais comum — o framework existe para impedir exatamente isso
+- Após corrigir um bug, buscar pelo mesmo padrão em todo o projeto antes de considerar o fix completo. Se o fix mudou `campoAntigo` para `campoNovo`, grep por `campoAntigo` em todos os arquivos. Fix parcial (corrigir 1 arquivo e deixar outros com o mesmo bug) é reincidência garantida
+- Auto-verificação da IA que implementou não é confiável como gate final. O /verify-spec rodado pela mesma IA que codou pode gerar falsos positivos (reportar conformidade quando metade dos itens não está implementado). Gates de verificação devem sempre incluir validação cross-model (Codex) e aprovação do usuário
 
 ## Workflow Padrão
 
@@ -197,6 +199,7 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `.claude/rules/state-sync.md` — protocolo de sincronização de estado entre ledger, memória e índice (trio)
 - `.claude/rules/implementation-quality.md` — padrões de erro recorrentes em planos de implementação
 - `.claude/rules/plan-construction.md` — procedimento de construção de planos (self-check interno do /plan)
+- `.claude/rules/integration-checklist.md` — checklist de migração mock para API real
 
 ## Slash Commands
 

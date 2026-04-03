@@ -31,6 +31,12 @@ if [ "$EXTENSION" = "py" ]; then
     if [ -n "$EVAL_HIT" ]; then
         ALERTAS="${ALERTAS}CODIGO INSEGURO: ${FILE_PATH} - uso de eval()/exec() detectado\n"
     fi
+
+    # Checar f-string SQL injection
+    FSQL_HIT=$(grep -nE 'f"(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b|f'"'"'(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE)\b' "$FILE_PATH" 2>/dev/null || true)
+    if [ -n "$FSQL_HIT" ]; then
+        ALERTAS="${ALERTAS}SQL INJECTION: ${FILE_PATH} - f-string com SQL detectado. Usar prepared statements/parameterized queries\n"
+    fi
 fi
 
 # --- JavaScript/TypeScript ---
