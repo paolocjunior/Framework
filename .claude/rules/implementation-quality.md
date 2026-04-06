@@ -133,6 +133,75 @@ Mock retorna array simples (`[item1, item2]`). API retorna objeto paginado (`{ i
 
 ---
 
+## Categoria 6 — React Native / Mobile
+
+> Padrões desta categoria aplicam-se especificamente a projetos que usam React Native.
+
+### Padrão 16: Provider de overlay interceptando todos os toques
+
+Providers de overlay (BottomSheet, Portal, Modal, Toast, etc.) de certas bibliotecas criam containers invisíveis de tela inteira na hierarquia nativa que interceptam TODOS os eventos de toque, mesmo quando nenhum overlay está aberto.
+
+- **O que acontece:** FABs, botões e qualquer elemento interativo param de responder ao toque em todas as telas. O `onPress` nunca dispara. O componente está visível mas inerte. Afeta toda a árvore abaixo do Provider.
+- **Por que não é detectado:** TypeScript compila, o componente renderiza visualmente, testes unitários passam. O container invisível só é visível via inspeção da hierarquia nativa (Android: `adb shell uiautomator dump`).
+- **Como evitar:** Antes de adicionar qualquer Provider de overlay/sheet/portal, verificar na documentação da biblioteca se o componente específico que será usado realmente exige aquele Provider. Providers de variantes modais são geralmente desnecessários quando se usa apenas a variante não-modal. Não adicionar Provider "por precaução".
+- **Como diagnosticar:** `adb shell uiautomator dump /dev/tty` — procurar por View/ScrollView de tela inteira que não corresponde a nenhum componente visível. `adb logcat -s ReactNativeJS` — se o `onPress` não aparece no log, o toque está sendo interceptado antes de chegar ao componente React (distingue "toque interceptado" de "handler não registrado").
+
+### Padrão 17: BottomSheet emitindo evento de fechamento durante inicialização
+
+Certas versões de bibliotecas de BottomSheet emitem o evento `onChange` com índice de fechamento (`-1`) durante a inicialização, antes de atingir o primeiro snap point. Se o handler trata qualquer índice de fechamento como sinal para fechar, o sheet abre e fecha instantaneamente — invisível para o usuário.
+
+- **O que acontece:** O estado é definido como "aberto", o sheet monta com índice `0`, mas `onChange(-1)` dispara durante a inicialização, chamando `onClose()` e desmontando o sheet antes de ser visível. Ciclo: mount → onChange(-1) → unmount.
+- **Como evitar:** Usar guard que rastreia se o sheet já alcançou um snap point aberto antes de aceitar eventos de fechamento como fechamento real. Processar `onChange(-1)` como fechamento válido somente se `index >= 0` já foi recebido anteriormente:
+  ```tsx
+  const hasReachedOpenRef = useRef(false);
+  const handleSheetChanges = (index: number) => {
+    if (index >= 0) hasReachedOpenRef.current = true;
+    else if (index === -1 && hasReachedOpenRef.current) {
+      hasReachedOpenRef.current = false;
+      onClose();
+    }
+  };
+  ```
+
+### Padrão 18: Focus cycling em TextInput por mudança de estilo do View pai
+
+Alterar propriedades do View pai de um TextInput nos callbacks `onFocus`/`onBlur` (backgroundColor, borderColor, elevation, shadow) pode causar loop infinito de foco no Android com New Architecture. O TextInput perde e re-ganha foco repetidamente, fazendo a tela tremer e o teclado abrir/fechar em loop.
+
+- **O que acontece:** A tela treme sem parar, o teclado não permanece aberto. Em casos severos, o bug pode afetar o teclado do sistema mesmo após navegar para outra tela ou fechar o app. Afeta todos os componentes que usam o mesmo padrão de focus styling.
+- **Causa raiz:** Relacionado ao React Native issue #45798 — mudar propriedades do View pai (elevation, backgroundColor, borderColor) em `onFocus`/`onBlur` faz o TextInput perder foco, disparando `onBlur`, que reverte os estilos, que restaura o foco — loop infinito. O comportamento é mais severo com New Architecture habilitada.
+- **Como evitar:** Nunca mudar estilos do View pai em `onFocus`/`onBlur`. Para feedback visual de foco, usar props do próprio TextInput (`outline*`, `underlineColorAndroid`) que não causam re-layout do pai.
+- **Como diagnosticar:** Se o teclado pisca repetidamente ou a tela treme ao focar em um TextInput, verificar se o componente muda estilos do View pai em `onFocus`/`onBlur`.
+
+### Padrão 19: Campo de ícone renderizado como texto em vez de componente visual
+
+Campo `icon: string` contendo nome de ícone de uma biblioteca (ex: "coffee", "star", "moon") renderizado diretamente em um componente de texto, exibindo o nome textual em vez do ícone visual.
+
+- **O que acontece:** A UI exibe o nome do ícone como texto em vez do ícone correspondente.
+- **Por que não é detectado:** Se os mocks usam emojis e a API real retorna strings de nomes, o bug só aparece ao integrar com a API real. TypeScript aceita ambos como `string`.
+- **Como evitar:** Quando um campo `icon: string` pode conter nomes de ícones de uma biblioteca, criar um utilitário de mapeamento (nome → componente) e usá-lo em todos os pontos de renderização. Incluir fallback para nomes desconhecidos. Testar com dados reais da API — mocks com emojis mascaram este bug.
+
+---
+
+## Categoria 7 — Arquitetura e Fluxo de Controle
+
+### Padrão 20: Dependência circular entre fases de implementação
+
+Arquivo planejado para Fase N importa módulo planejado para Fase N+1. O projeto não compila ao final da Fase N porque o módulo importado ainda não existe.
+
+- **O que acontece:** A Fase N não atinge o critério de aceite (compilação limpa). Corrigir na Fase N+1 cria retrabalho cascata e invalida o critério de aceite retroativamente.
+- **Como evitar:** Para cada arquivo em Fase N, todos os seus imports devem existir em Fase 1..N — nenhum import aponta para Fase N+1 ou posterior. A dependência entre fases é estritamente unidirecional: Fase N+1 pode depender de N, nunca o contrário.
+- **Após corrigir:** Varrer sistematicamente TODOS os outros arquivos da mesma fase antes de considerar o fix completo. O mesmo padrão de dependência circular tipicamente existe em mais de um ponto — corrigir apenas o primeiro sem varrer os demais é reincidência garantida.
+
+### Padrão 21: Comunicação de controle de fluxo via exception
+
+Função usa `throw` para sinalizar ao caller que ele deve fazer retry, continuar o loop ou tomar outra ação de controle — em vez de comunicar via valor de retorno.
+
+- **O que acontece:** Qualquer bloco `catch` intermediário na pilha de chamadas captura a exception sem entender a semântica de "sinal de retry". O caller original nunca recebe a mensagem. O comportamento resultante é o oposto do pretendido: o sistema para onde deveria continuar.
+- **Como evitar:** `throw` é para erros não-recuperáveis ou propagação de falha — não para comunicar "pode continuar". Para sinalizar ao caller que ele deve fazer retry ou loop: usar valor de retorno (`null`, enum, `Result<T>`). Regra: se a "exception" é esperada e o caller precisa agir sobre ela diferentemente de outros erros, não é exception — é valor de retorno.
+- **Sinal de alerta:** Se um `catch` decide entre "fazer retry" vs "reportar erro" baseado no conteúdo da exception capturada, o design está comunicando controle via exception — refatorar para valor de retorno.
+
+---
+
 ## Como usar esta rule
 
 Ao criar um plano de implementação:
@@ -142,4 +211,6 @@ Ao criar um plano de implementação:
 3. Revisar a navegação contra os padrões 10-11
 4. Revisar os mocks contra os padrões 12-13
 5. Revisar integração frontend↔backend contra os padrões 14-15
-6. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final
+6. Em projetos React Native: revisar componentes e bibliotecas de overlay contra os padrões 16-19
+7. Em projetos com implementação faseada ou fluxo de controle assíncrono: revisar arquitetura e controle de fluxo contra os padrões 20-21
+8. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final

@@ -18,6 +18,11 @@
 - [ ] Política de importação/exportação/sync insuficiente
 - [ ] Feature parcial descrita como se fosse completa
 - [ ] Critério de aceite insuficiente ou não verificável
+- [ ] Regra que diz "X determina Y" sem especificar o mecanismo de transmissão — qual campo, arquivo, formato ou como Y lê o dado de X
+- [ ] Exemplos concretos (JSON, valores de enum, campos de artefato) escritos manualmente sem verificação contra as tabelas normativas da mesma spec — exemplos e tabelas divergem sistematicamente quando escritos em momentos diferentes
+- [ ] Valor que aparecerá em código (string comparada, campo de artefato, enum) especificado como descrição em linguagem natural em vez de token literal exato
+- [ ] Mapa de decisão (tabela de veredictos, mapeamento de status, dispatch de eventos) não verificado contra todos os casos que o sistema pode gerar — lacunas causam falhas ou pausas silenciosas em casos legítimos
+- [ ] Sistema com múltiplos timeouts, contadores ou limites com nomes similares e contextos diferentes — nomes ambíguos garantem conflação durante a implementação
 
 ## Block implementation when
 

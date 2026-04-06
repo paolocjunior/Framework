@@ -9,7 +9,7 @@ Para verificacao formal e independente de um plano ja finalizado, usar o command
 
 Definir o procedimento que o Claude Code deve executar antes de finalizar um plano de implementação. Este procedimento complementa `.claude/rules/implementation-quality.md` (que define o que pode estar errado) com instruções de como encontrar e corrigir problemas antes de apresentar o plano.
 
-O Claude Code deve executar estes 6 passos ao criar planos via `/plan` ou via o agent `planner`.
+O Claude Code deve executar estes 8 passos ao criar planos via `/plan` ou via o agent `planner`.
 
 ---
 
@@ -111,6 +111,7 @@ Verificar que contagens no plano (endpoints, telas, tabelas, rotas) batem com o 
 - Se o plano diz "X endpoints", contar endpoints reais no código do backend (grep nos routers/routes) — não confiar na spec ou em contagem mental
 - Se o plano diz "Y telas", contar telas reais na navegação — não confiar na listagem do plano anterior
 - Se o plano diz "Z tabelas", contar tabelas reais no schema/migrations — não confiar na spec
+- Se o plano declara "N veredictos", "N estados", "N eventos" ou qualquer contagem de itens de uma tabela: listar todos explicitamente e contar — nunca estimativa. Se total declarado diverge da contagem real, o declarado está errado.
 
 ### Se a contagem divergir
 
@@ -135,11 +136,28 @@ Remover o item da verificação, ou expandir o corpo do plano para incluir a def
 
 ---
 
+## Passo 8 — Responsabilidades vs. Arquivos
+
+Verificar que toda responsabilidade de negócio relevante tem arquivo designado com função e responsabilidades explícitas.
+
+### Perguntas obrigatórias
+
+- Existe responsabilidade descrita como "será feito em X" sem especificar quais funções e responsabilidades X terá?
+- Etapas de inicialização, setup ou bootstrap do pipeline têm arquivo próprio, ou estão todas caindo em um arquivo de entry point genérico?
+- Lógica de recuperação, descoberta de dados ou configuração crítica tem arquivo designado?
+- Mapas de decisão (tabela de veredictos, dispatch de eventos, mapeamento de estados) têm arquivo designado E cobertura verificada contra todos os casos definidos na spec?
+
+### Se a resposta for "não"
+
+Criar o arquivo designado e listar suas responsabilidades explicitamente no plano. "Será feito em X" sem especificar o quê é planejamento incompleto — o implementador improvisa ou concentra responsabilidades heterogêneas em um arquivo de entry point.
+
+---
+
 ## Formato de saída
 
 Ao executar esta verificação, o Claude Code não precisa reportar cada passo explicitamente ao usuário. Deve apenas:
 
-1. Executar os 6 passos internamente antes de finalizar o plano
+1. Executar os 8 passos internamente antes de finalizar o plano
 2. Corrigir problemas encontrados antes de apresentar
 3. Se houver problema que dependa de decisão do usuário, apresentar o problema com opções antes de finalizar o plano
 

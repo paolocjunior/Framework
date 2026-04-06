@@ -19,6 +19,7 @@ Verifica se o projeto **compila, funciona e não está quebrado**. Itens deste b
 ### A1. Build
 - Projeto compila sem erros (`npm run build`, `tsc`, equivalente da stack)
 - Se não houver build configurado, verificar se os arquivos-fonte estão sintaticamente corretos
+- Em projetos com bundler (tsup, esbuild, webpack, rollup): verificar se o arquivo source tem shebang (`#!/usr/bin/env node`) E o bundler tem `banner` configurado com shebang — ambos juntos geram double shebang no output, causando SyntaxError ao executar
 
 ### A2. Testes
 - Testes existentes passam sem falha
@@ -29,6 +30,7 @@ Verifica se o projeto **compila, funciona e não está quebrado**. Itens deste b
 - Lint passa sem erros (se configurado)
 - Checagem de tipos passa sem erros (se aplicável)
 - Se não configurados, registrar como recomendação
+- Scripts declarados em `package.json` (lint, test, build, format) têm as dependências necessárias instaladas? Um script configurado sem a ferramenta instalada falha com "command not found" — nunca com "zero errors"
 
 ### A4. Configuração por Ambiente
 - Configurações separadas por ambiente (dev/staging/prod)

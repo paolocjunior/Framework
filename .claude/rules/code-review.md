@@ -7,6 +7,7 @@
 - [ ] Complexidade ciclomática baixa (sem aninhamento excessivo de if/else)
 - [ ] Sem código duplicado (DRY aplicado onde faz sentido)
 - [ ] Comentários explicam o "porquê", não o "o quê"
+- [ ] Comentários que referenciam decisões de design anteriores foram atualizados para refletir a abordagem atual — comentário desatualizado é mais enganoso que ausência de comentário
 
 ## Estrutura e Organização
 

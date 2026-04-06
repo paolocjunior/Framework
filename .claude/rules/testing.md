@@ -37,6 +37,7 @@ Seguir o padrão Arrange-Act-Assert (AAA):
 - Nunca mockar a unidade sendo testada
 - Mocks devem refletir o comportamento real da dependência
 - Verificar que mocks são chamados com os argumentos corretos
+- `clearAllMocks()` (Jest/Vitest) limpa histórico de chamadas mas NÃO limpa filas de `mockOnce` — testes que falham no meio deixam entradas não consumidas que vazam para testes subsequentes. Usar `resetAllMocks()` quando o suite usa `mockOnce` e precisar de isolamento completo entre testes.
 
 ## Cobertura
 
