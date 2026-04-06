@@ -14,7 +14,8 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-THRESHOLD=8
+WARNING_THRESHOLD=3
+BLOCK_THRESHOLD=5
 COUNT_DIR="/tmp/claude-loop-detection"
 mkdir -p "$COUNT_DIR"
 
@@ -34,9 +35,19 @@ fi
 echo "$FILE_KEY" >> "$COUNT_FILE"
 CURRENT_COUNT=$((CURRENT_COUNT + 1))
 
-# Se passou do threshold, emitir aviso
-if [ "$CURRENT_COUNT" -eq "$THRESHOLD" ] || [ "$CURRENT_COUNT" -eq $((THRESHOLD + 5)) ]; then
-    echo "{\"systemMessage\": \"[LOOP DETECTION] O arquivo ${FILE_PATH} foi editado ${CURRENT_COUNT} vezes nesta sessao. Isso pode ser iteracao legitima ou repeticao improdutiva. Reavalie se ha nova evidencia, mudanca de estrategia ou necessidade de replanejamento via /plan.\"}"
+# 3a edicao: warning (alerta sem bloqueio)
+if [ "$CURRENT_COUNT" -eq "$WARNING_THRESHOLD" ]; then
+    echo "{\"systemMessage\": \"[LOOP WARNING] O arquivo ${FILE_PATH} foi editado ${CURRENT_COUNT} vezes nesta sessao. Atencao: possivel loop de correcao. Verificar se ha nova evidencia ou necessidade de mudar estrategia antes de continuar.\"}"
+fi
+
+# 5a edicao: bloqueio (parar e diagnosticar)
+if [ "$CURRENT_COUNT" -eq "$BLOCK_THRESHOLD" ]; then
+    echo "{\"systemMessage\": \"[LOOP BLOCK] O arquivo ${FILE_PATH} foi editado ${CURRENT_COUNT} vezes nesta sessao. PARAR e produzir diagnostico de causa-raiz antes de continuar. Nao fazer mais correcoes cegas. Considerar /plan para replanejar a abordagem.\"}"
+fi
+
+# Apos bloqueio, avisar a cada 5 edicoes adicionais
+if [ "$CURRENT_COUNT" -gt "$BLOCK_THRESHOLD" ] && [ $(( (CURRENT_COUNT - BLOCK_THRESHOLD) % 5 )) -eq 0 ]; then
+    echo "{\"systemMessage\": \"[LOOP PERSISTENT] O arquivo ${FILE_PATH} foi editado ${CURRENT_COUNT} vezes nesta sessao. O diagnostico de causa-raiz ja deveria ter sido feito. Parar imediatamente.\"}"
 fi
 
 exit 0

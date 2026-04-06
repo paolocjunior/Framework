@@ -10,7 +10,7 @@ projeto/
 ├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
 └── .claude/
     ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 18 checklists de qualidade
+    ├── rules/                         # 21 checklists de qualidade
     │   ├── security.md                # Segurança geral
     │   ├── testing.md                 # Padrões de testes
     │   ├── code-review.md             # Critérios de revisão
@@ -28,13 +28,17 @@ projeto/
     │   ├── execution-tracking.md      # Rastreamento de fases
     │   ├── state-sync.md              # Protocolo do trio de sincronização
     │   ├── implementation-quality.md  # Padrões de erro em implementação
-    │   └── plan-construction.md       # Procedimento de construção de planos
-    ├── commands/                       # 14 slash commands
-    ├── agents/                         # 5 subagents especializados
+    │   ├── plan-construction.md       # Procedimento de construção de planos
+    │   ├── integration-checklist.md   # Migração mock para API real
+    │   ├── spec-creation-guide.md     # Guia de criação de especificação
+    │   └── recommended-skills.md      # Catálogo de lacunas e skills externas
+    ├── commands/                       # 17 slash commands
+    ├── agents/                         # 6 subagents especializados
     ├── hooks/                          # 10 scripts de validação automática
     └── runtime/
         ├── execution-ledger.md        # Estado oficial do projeto
         ├── pattern-registry.md        # Catálogo de padrões aprovados
+        ├── spec-template.md           # Template de estrutura de especificação
         ├── project-status.template.md # Template do snapshot de memória
         ├── baseline-feedbacks/        # Templates de feedbacks comportamentais
         └── session-summaries/         # Resumos de sessão (gerados automaticamente)
@@ -70,7 +74,7 @@ No Claude Code do projeto:
 
 | Camada | Mecanismo | Proteção |
 |--------|-----------|----------|
-| 1 — Regras | CLAUDE.md + 18 rules | Direção e padrões |
+| 1 — Regras | CLAUDE.md + 21 rules | Direção e padrões |
 | 2 — Hooks | 10 scripts automáticos | Erros objetivos (secrets, syntax) |
 | 3 — Memória | Feedbacks comportamentais | Erros de julgamento |
 | 4 — Cross-model | Codex adversarial review | Blind spots da IA principal |
@@ -81,6 +85,7 @@ Todos os hooks rodam sempre. Não existe modo reduzido.
 
 | Comando | O que faz |
 |---------|-----------|
+| `/spec-create` | Criar spec do zero (workflow interativo) |
 | `/spec-check` | Validar spec antes de planejar |
 | `/ui-plan` | Planejar telas e navegação |
 | `/design-preview` | Gerar opções de Design System |
@@ -95,6 +100,8 @@ Todos os hooks rodam sempre. Não existe modo reduzido.
 | `/verify-spec` | Verificar código contra spec |
 | `/ship-check` | Gate final pré-entrega |
 | `/status-check` | Estado atual do projeto |
+| `/memory-consolidate` | Consolidar memória (ledger + feedbacks) |
+| `/skills-gap` | Identificar lacunas e sugerir skills |
 
 ## Subagents
 
@@ -105,3 +112,4 @@ Todos os hooks rodam sempre. Não existe modo reduzido.
 | `planner` | Planejamento de implementação |
 | `spec-plan-validator` | Cruza plano com spec |
 | `consistency-checker` | Coerência interna do plano |
+| `spec-creator` | Questionamento e estruturação de spec |

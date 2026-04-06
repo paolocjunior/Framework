@@ -1,3 +1,10 @@
+---
+name: spec-plan-validator
+description: Cruzar plano de implementacao com especificacao do modulo. Verifica fidelidade a spec e qualidade tecnica. Use quando o /plan-review precisar validar um plano contra a spec formal.
+tools: Read, Grep, Glob
+model: opus
+---
+
 # Agent: Spec-Plan Validator
 
 ## Papel

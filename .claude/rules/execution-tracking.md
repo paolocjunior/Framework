@@ -56,6 +56,30 @@ Regra resumida: **ao atualizar o ledger, atualizar também o snapshot de memóri
 
 Commands que geram veredicto (/spec-check, /ship-check, /review, /audit, /verify-spec) devem atualizar os 3 arquivos ao final da execução.
 
+## Context Isolation entre Fases
+
+Em projetos com mais de 3 fases de implementação, o contexto da sessão pode acumular resíduos de fases anteriores (decisões intermediárias, prompts temporários, tentativas abandonadas). Isso polui o contexto e pode causar confusão.
+
+**Recomendação:** Ao iniciar uma nova fase de implementação em projetos longos, considerar:
+
+1. `/clear` — limpa a janela de contexto (remove resíduos da sessão)
+2. `/status-check` — recarrega o estado do projeto a partir do ledger (contexto limpo e atualizado)
+
+**O que se preserva:** Tudo no ledger, feedbacks na memória, pattern-registry, session-summaries, spec, código. O `/clear` afeta apenas a memória de trabalho temporária da sessão, não arquivos em disco.
+
+**O que se perde:** Conversação da sessão anterior, prompts temporários, decisões intermediárias não registradas no ledger. Por isso, registrar decisões importantes no ledger ANTES do `/clear`.
+
+**Diferença para compactação automática:** O Claude Code pode compactar o contexto automaticamente quando a janela enche. O `/clear` é intencional e controlado pelo usuário — preferível porque é previsível. A compactação automática pode perder nuances.
+
+**Quando usar:**
+- Ao iniciar nova fase de implementação
+- Quando o contexto ficou grande e a qualidade das respostas parece degradar
+- Ao retomar trabalho depois de dias parado (usar `/status-check` primeiro)
+
+**Quando NÃO usar:**
+- No meio de uma implementação ativa (perderia contexto de trabalho)
+- Se há decisões pendentes não registradas no ledger
+
 ## Bootstrap
 
 O template do ledger faz parte do framework base e é copiado junto com `.claude/` para cada novo projeto. O primeiro command que gera veredicto (normalmente `/spec-check`) deve:

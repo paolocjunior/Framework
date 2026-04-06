@@ -1,3 +1,10 @@
+---
+name: consistency-checker
+description: Verificar coerencia interna do plano de implementacao — contagens, dependencias, referencias cruzadas, scope drift e duplicacao. Use quando o /plan-review precisar validar consistencia interna do plano.
+tools: Read, Grep, Glob
+model: opus
+---
+
 # Agent: Internal Consistency Checker
 
 ## Papel

@@ -1,6 +1,7 @@
 ---
 description: Verificação pós-implementação — confirma se o código entregue corresponde ao que a especificação prometeu
 allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(wc:*), Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(python:*), Bash(pip:*)
+context: fork
 ---
 
 Verificar se o código implementado entrega o que a especificação original prometeu.

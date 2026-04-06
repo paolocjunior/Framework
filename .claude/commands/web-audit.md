@@ -1,6 +1,7 @@
 ---
 description: Auditoria de segurança focada em aplicações web e APIs — autenticação, autorização, proteção de dados, XSS, CSRF, CORS, headers e rate limiting
 allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(curl:*)
+context: fork
 ---
 
 Realizar auditoria de segurança web e API no projeto seguindo a checklist em `.claude/rules/web-api-security.md`.

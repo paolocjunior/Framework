@@ -1,6 +1,6 @@
 ---
 description: Verificar plano de implementacao antes de codar
-allowed-tools: Read, Grep, Glob, Agent
+allowed-tools: Read, Grep, Glob, Agent, Bash
 ---
 
 # /plan-review — Revisao de Plano de Implementacao
@@ -85,7 +85,17 @@ NEEDS_HUMAN_REVIEW          → Conflito nao resolvivel entre agents.
 
 NEEDS_HUMAN_REVIEW NAO deve ser usado para: achados banais, melhorias editoriais, duvidas que poderiam ser resolvidas lendo melhor os arquivos.
 
-### Passo 4 — Output
+### Passo 4 — Gate de implementação (marker)
+
+Se o veredito for APPROVED ou APPROVED_WITH_CORRECTIONS, criar o marker que libera o hook `pre-implementation-gate.sh`:
+
+```bash
+mkdir -p .claude/runtime && touch .claude/runtime/.plan-approved
+```
+
+Se o veredito for NEEDS_REVISION ou NEEDS_HUMAN_REVIEW, NÃO criar o marker. O hook continuará bloqueando código-fonte até que o plano seja corrigido e re-aprovado.
+
+### Passo 5 — Output
 
 Formato obrigatorio:
 

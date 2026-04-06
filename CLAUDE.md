@@ -18,16 +18,19 @@
 - Nenhuma implementação é trivial demais para o workflow. Mesmo um fix de 1 linha deve seguir o ciclo: ler contexto, planejar, apresentar plano, aguardar aprovação, implementar, validar, justificar. Racionalizar que algo é "simples demais para planejar" é o padrão de erro mais comum — o framework existe para impedir exatamente isso
 - Após corrigir um bug, buscar pelo mesmo padrão em todo o projeto antes de considerar o fix completo. Se o fix mudou `campoAntigo` para `campoNovo`, grep por `campoAntigo` em todos os arquivos. Fix parcial (corrigir 1 arquivo e deixar outros com o mesmo bug) é reincidência garantida
 - Auto-verificação da IA que implementou não é confiável como gate final. O /verify-spec rodado pela mesma IA que codou pode gerar falsos positivos (reportar conformidade quando metade dos itens não está implementado). Gates de verificação devem sempre incluir validação cross-model (Codex) e aprovação do usuário
+- Nenhum gate de workflow pode ser substituído por inferência. `/spec-check`, `/plan-review` e `/verify-spec` são execuções explícitas de commands — sair de um modo (ExitPlanMode), ler sem comentar, ou o usuário dizer "ok" não substitui rodar o command. Cada gate deve ser executado formalmente para produzir seu veredicto. O hook `pre-implementation-gate.sh` reforça mecanicamente o gate `/plan-review` → implementação
 
 ## Workflow Padrão
 
-1. **Antes de codar**: ler os arquivos relevantes do projeto, entender o contexto existente
-2. **Planejar**: descrever o que será feito e por quê, antes de executar
-3. **Verificar plano**: revisar o plano antes de implementar (`/plan-review`) — gate formal entre planejamento e código
-4. **Implementar**: código incremental, testável, uma mudança por vez
-5. **Validar**: verificações automáticas de sintaxe, secrets expostos e código inseguro (via hooks). Linters e testes específicos devem ser configurados na Camada 2 (por projeto)
-6. **Justificar**: cada escolha técnica deve ter uma razão documentável
-7. **Verificar entrega**: confirmar que o código implementado corresponde ao que a especificação prometeu (`/verify-spec`) — gate de aderência funcional
+0. **Criar spec** (se não existir): usar `/spec-create` para construir a especificação do zero com o usuário — discovery, requisitos, telas, modelo de dados, regras de negócio
+1. **Validar spec**: rodar `/spec-check` para confirmar que a especificação está pronta para implementação
+2. **Antes de codar**: ler os arquivos relevantes do projeto, entender o contexto existente
+3. **Planejar**: descrever o que será feito e por quê, antes de executar
+4. **Verificar plano**: `/plan-review` é OBRIGATÓRIO antes de qualquer implementação. ExitPlanMode NÃO substitui `/plan-review`. Implementação sem plan-review é violação de workflow. O hook `pre-implementation-gate.sh` bloqueia mecanicamente a criação de código-fonte até que `/plan-review` crie o marker `.claude/runtime/.plan-approved`
+5. **Implementar**: código incremental, testável, uma mudança por vez
+6. **Validar**: verificações automáticas de sintaxe, secrets expostos e código inseguro (via hooks). Linters e testes específicos devem ser configurados na Camada 2 (por projeto)
+7. **Justificar**: cada escolha técnica deve ter uma razão documentável
+8. **Verificar entrega**: confirmar que o código implementado corresponde ao que a especificação prometeu (`/verify-spec`) — gate de aderência funcional
 
 ## Regras de Código (todas as linguagens)
 
@@ -51,7 +54,7 @@
 
 ## Hooks
 
-Todos os 10 hooks rodam sempre, sem exceção. Não existe modo reduzido — o framework opera com poder máximo em qualquer projeto.
+Todos os 11 hooks rodam sempre, sem exceção. Não existe modo reduzido — o framework opera com poder máximo em qualquer projeto.
 
 ### Lifecycle de Sessão
 
@@ -59,9 +62,25 @@ Todos os 10 hooks rodam sempre, sem exceção. Não existe modo reduzido — o f
 |--------|------|-----------|
 | `SessionStart` (startup/resume) | `health-check.sh` | Valida ambiente (jq, estrutura, permissões) |
 | `PreToolUse` (Edit/Write) | `protect-files.sh` | Bloqueia edição de lockfiles e .git |
+| `PreToolUse` (Edit/Write) | `pre-implementation-gate.sh` | Bloqueia código-fonte sem /plan-review aprovado |
 | `PostToolUse` (Edit/Write) | 5 hooks decompostos + loop-detection | Validação completa em toda edição |
 | `Stop` | `session-summary.sh` | Gera resumo da sessão em arquivo separado |
 | `SessionEnd` | `session-cleanup.sh` | Cleanup de temporários (timeout 1.5s) |
+
+### Protocolo de Markers de Gate
+
+Commands que representam gates de workflow criam marker files para enforcement mecânico via hooks:
+
+| Marker | Criado por | Verificado por | Propósito |
+|--------|-----------|---------------|-----------|
+| `.claude/runtime/.plan-approved` | `/plan-review` (quando aprova) | `pre-implementation-gate.sh` | Libera criação de código-fonte |
+
+Regras:
+- O marker é criado apenas quando o gate produz veredicto positivo (APPROVED)
+- O marker persiste até ser removido manualmente ou por um novo ciclo de `/plan`
+- Em projetos sem ledger (não gerenciados pelo framework), o hook não interfere
+- Escape hatch para projetos que não usam `/plan`: `touch .claude/runtime/.plan-approved`
+- O `/plan` deve remover o marker antigo (se existir) ao iniciar, forçando novo ciclo de aprovação
 
 ### Runtime e Persistência de Estado
 
@@ -69,6 +88,7 @@ Todos os 10 hooks rodam sempre, sem exceção. Não existe modo reduzido — o f
 |---------|-----------|-------------|-----------|
 | `runtime/execution-ledger.md` | Estado oficial e completo do projeto | Apenas commands (/spec-check, /ship-check, etc.) | Dentro do projeto (Git) |
 | `runtime/pattern-registry.md` | Catálogo de padrões aprovados | Manual ou via /justify | Dentro do projeto (Git) |
+| `runtime/spec-template.md` | Template de estrutura de especificação | Referência para /spec-create | Dentro do projeto (Git) |
 | `runtime/session-summaries/latest.md` | Resumo da última sessão | Hook session-summary.sh (automático) | Dentro do projeto (Git) |
 | `memory/project_spec-status.md` | Snapshot resumido do estado atual | Commands (junto com ledger) | Fora do projeto (memória Claude Code) |
 
@@ -81,7 +101,7 @@ O framework opera em 4 camadas complementares de defesa. Nenhuma substitui as ou
 | Camada | Mecanismo | Tipo de proteção | Exemplo |
 |--------|-----------|-----------------|---------|
 | 1 — Regras | CLAUDE.md + rules | Declarativa — define direção e padrões | "Validar entrada", "Planejar antes de codar" |
-| 2 — Hooks | Scripts em PreToolUse/PostToolUse | Mecânica — bloqueia erros objetivos automaticamente | Secrets detectados, syntax inválida, hex hardcoded |
+| 2 — Hooks | Scripts em PreToolUse/PostToolUse | Mecânica — bloqueia erros objetivos automaticamente | Secrets detectados, syntax inválida, hex hardcoded, código sem plan-review |
 | 3 — Memória | Feedbacks comportamentais persistidos | Comportamental — corrige erros de julgamento entre sessões | "Grep por import não prova uso", "Nenhum fix é trivial" |
 | 4 — Cross-model | Codex adversarial review (GPT-5.4) | Validação independente — IA diferente encontra blind spots | Bucket compartilhado, proxy hardcoded, XFF spoofável |
 
@@ -112,14 +132,22 @@ Se a spec mudar durante o projeto (novo módulo, mudança de stack, pivô de esc
 
 #### Checkpoints obrigatórios
 
-O Claude Code DEVE chamar `/codex:adversarial-review` automaticamente em 4 momentos:
+O Claude Code DEVE chamar `/codex:adversarial-review` automaticamente após CADA command do framework que produz veredicto ou artefato. O Codex valida 100% do que o Claude Code faz — não apenas em momentos-chave, mas em todo output significativo:
 
 | Checkpoint | Quando | O que incluir no focus text |
 |-----------|--------|---------------------------|
-| Após /plan | Plano criado | Plano completo + "valide contra [spec / finding / requisito]" |
-| Após implementação | Código escrito | Resumo do plano + "verifique implementação" |
-| Após fix de findings | Correções aplicadas | Findings originais + resumo dos fixes |
-| Antes do /ship-check | Pré-entrega | Contexto do projeto + "revisão final de segurança" |
+| Após /spec-create | Spec criada | Spec completa + "valide completude, ambiguidades e viabilidade" |
+| Após /spec-check | Spec validada | Resultado do spec-check + "valide se os findings são reais e se há lacunas não detectadas" |
+| Após /plan | Plano criado | Plano completo + "valide contra spec e viabilidade técnica" |
+| Após /plan-review | Plano revisado | Resultado do plan-review + "valide se a revisão foi rigorosa" |
+| Após implementação | Código escrito | Resumo do plano + "verifique implementação completa" |
+| Após /review | Review feito | Resultado do review + "valide se a revisão foi completa e rigorosa" |
+| Após /audit (e variantes) | Auditoria feita | Resultado da auditoria + "valide findings e busque vulnerabilidades não detectadas" |
+| Após fix de findings | Correções aplicadas | Findings originais + resumo dos fixes + "valide que os fixes são corretos" |
+| Após /verify-spec | Verificação feita | Resultado do verify-spec + "valide se a verificação foi fidedigna" |
+| Antes do /ship-check | Pré-entrega | Contexto do projeto + "revisão final de segurança e qualidade" |
+
+**Regra:** O Codex é a segunda opinião obrigatória. Todo output do Claude Code que afeta o projeto passa pelo Codex. A experiência mostrou que o Codex consistentemente encontra mais apontamentos que o Claude Code sozinho.
 
 #### Composição do focus text
 
@@ -177,6 +205,23 @@ Aguardando aprovação do usuário para prosseguir.
 
 O usuário revisa o relatório e autoriza a próxima fase. Nenhuma fase avança sem aprovação explícita.
 
+#### Timeouts e comportamento assíncrono
+
+O Codex opera com 3 timeouts independentes que o desenvolvedor deve conhecer:
+
+| Timeout | Duração | O que acontece quando expira |
+|---------|---------|----------------------------|
+| Bash timeout | 5 min | Claude Code mata o processo — mas o Codex continua rodando em background |
+| Status wait timeout | 4 min | Plugin para de esperar resposta — resultado ainda será entregue |
+| Stop review gate | 15 min | Codex continua análise — resultado disponível via `/codex:status` |
+
+**Comportamento prático:**
+- Se o Codex "travar" por mais de 5 min, usar `/codex:status` para verificar se ainda está rodando
+- O Codex NÃO para quando o timeout do Bash expira — ele continua a análise em background
+- Para projetos grandes, o Codex pode levar mais de 5 min — isso é normal, não é erro
+- O resultado do Codex em background permanece acessível mesmo após timeout do Claude Code
+- Para reviews longas, considerar focus text mais específico para reduzir o tempo de análise
+
 ## Documentação
 
 As rules abaixo definem critérios normativos de revisão, segurança, verificação e qualidade estrutural. Consultar e aplicar conforme o tipo de tarefa:
@@ -200,23 +245,28 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `.claude/rules/implementation-quality.md` — padrões de erro recorrentes em planos de implementação
 - `.claude/rules/plan-construction.md` — procedimento de construção de planos (self-check interno do /plan)
 - `.claude/rules/integration-checklist.md` — checklist de migração mock para API real
+- `.claude/rules/spec-creation-guide.md` — guia de criação de especificação (questionamento, anti-padrões, escopo)
+- `.claude/rules/recommended-skills.md` — catálogo de lacunas e skills externas complementares
 
 ## Slash Commands
 
-- `/audit` — auditoria completa de segurança e qualidade
-- `/review` — revisão de código com checklist senior
+- `/spec-create` — criar especificação de projeto do zero (workflow interativo de discovery e estruturação)
+- `/spec-check` — verificação de prontidão da especificação antes de planejar ou implementar
 - `/plan` — criar plano de implementação antes de codar
 - `/plan-review` — verificar plano de implementação antes de codar (gate formal entre planejamento e implementação)
-- `/justify` — documentar justificativas técnicas das decisões tomadas
-- `/db-audit` — auditoria de segurança focada em banco de dados
-- `/k8s-audit` — auditoria de segurança focada em Kubernetes
-- `/web-audit` — auditoria de segurança focada em web e API
-- `/ship-check` — verificação pré-entrega antes de distribuição ou deploy
-- `/verify-spec` — verificação pós-implementação contra a especificação original
-- `/spec-check` — verificação de prontidão da especificação antes de planejar ou implementar
 - `/ui-plan` — planejamento e checkpoint visual de UI antes da implementação funcional
 - `/design-preview` — gerar opções visuais de Design System para aprovação antes da UI Shell
+- `/review` — revisão de código com checklist senior
+- `/audit` — auditoria completa de segurança e qualidade (context: fork)
+- `/justify` — documentar justificativas técnicas das decisões tomadas
+- `/db-audit` — auditoria de segurança focada em banco de dados (context: fork)
+- `/k8s-audit` — auditoria de segurança focada em Kubernetes
+- `/web-audit` — auditoria de segurança focada em web e API (context: fork)
+- `/verify-spec` — verificação pós-implementação contra a especificação original (context: fork)
+- `/ship-check` — verificação pré-entrega antes de distribuição ou deploy (context: fork)
 - `/status-check` — verificar estado atual do projeto, fases pendentes e bloqueios
+- `/memory-consolidate` — consolidar memória do projeto (reorganizar ledger, merge feedbacks)
+- `/skills-gap` — identificar lacunas de cobertura e sugerir skills externas complementares
 
 ## Subagents
 
@@ -225,3 +275,4 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `planner` — planejamento de implementação antes da execução
 - `spec-plan-validator` — cruza plano com spec e verifica qualidade técnica (usado por /plan-review)
 - `consistency-checker` — verifica coerência interna do plano (usado por /plan-review)
+- `spec-creator` — questionamento profundo e estruturação de especificação (usado por /spec-create)

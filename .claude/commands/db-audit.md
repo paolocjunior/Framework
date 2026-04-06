@@ -1,6 +1,7 @@
 ---
 description: Auditoria de segurança focada em banco de dados — credenciais, exposição de portas, queries inseguras, privilégios, auditoria e configurações
 allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(docker:*)
+context: fork
 ---
 
 Realizar auditoria de segurança de banco de dados no projeto seguindo a checklist em `.claude/rules/database-security.md`.

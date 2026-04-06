@@ -1,6 +1,7 @@
 ---
 description: Auditoria completa de segurança e qualidade do código
 allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(npm:*), Bash(npx:*), Bash(pip:*), Bash(python:*), Bash(node:*), Bash(cat:*), Bash(wc:*)
+context: fork
 ---
 
 Realizar auditoria completa do código do projeto seguindo as checklists em:

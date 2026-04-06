@@ -1,6 +1,6 @@
 ---
 description: Criar plano de implementação antes de codar
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 Antes de qualquer implementação, criar um plano estruturado:
@@ -19,3 +19,13 @@ Se o plano for aprovado com alterações, atualizar o plano e reapresentar.
 
 Consultar `.claude/rules/implementation-quality.md` para evitar padrões de erro recorrentes ao criar planos.
 Executar os 6 passos de `.claude/rules/plan-construction.md` antes de finalizar o plano.
+
+## Gate de implementação
+
+Ao finalizar o plano, remover o marker de aprovação anterior (se existir) para forçar novo ciclo de `/plan-review`:
+
+```bash
+rm -f .claude/runtime/.plan-approved
+```
+
+Isso garante que o hook `pre-implementation-gate.sh` bloqueie código-fonte até que o `/plan-review` aprove este novo plano.
