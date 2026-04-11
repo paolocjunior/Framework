@@ -6,7 +6,7 @@ Todas as respostas, análises, findings e recomendações devem ser em **Portugu
 
 ## Framework de Qualidade
 
-Este projeto usa o **Claude Code Quality Framework V3**. Os critérios normativos estão em:
+Este projeto usa o **Claude Code Quality Framework V4**. Os critérios normativos estão em:
 
 - `CLAUDE.md` — configuração principal (princípios, workflow, regras)
 - `.claude/rules/security.md` — checklist de segurança
