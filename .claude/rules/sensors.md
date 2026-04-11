@@ -121,7 +121,8 @@ O campo `blocking_failures` conta explicitamente quantos sensores falharam com `
 | `/sensors-run` | Executa sensores, produz `sensors-last-run.json`, atualiza ledger | Reporta veredicto estruturado; não bloqueia por si só |
 | `/ship-check` | Lê `sensors-last-run.json`; se ausente ou stale, executa `/sensors-run` primeiro | `FAIL` do sensor bloqueia veredicto `PRONTO` |
 | `/verify-spec` | Lê `sensors-last-run.json` como evidência mecânica de que o código roda; cruza com cobertura funcional | `FAIL` do sensor rebaixa veredicto; teste fail = cenário NÃO COBERTO |
-| `/plan-review` | Lê `sensors.json` (não `last-run`) para verificar se o plano declara cobertura de sensores para novas entregas | Plano sem sensor para feature crítica = achado NON-BLOCKING |
+
+Nota sobre `/plan-review`: atualmente não consome sensores. Verificação de cobertura de sensores em planos novos é possibilidade futura, não contrato vigente — a integração só passa a valer quando `plan-review.md` declarar explicitamente o passo de leitura de `sensors.json` e a tabela acima for atualizada em conjunto.
 
 ### Staleness do `sensors-last-run.json`
 
