@@ -148,6 +148,51 @@ Se `/verify-spec` concluir "entrega X está IMPLEMENTADA" mas o sensor de teste 
 
 Esse é o ponto central da camada de sensores: o agente não pode contradizer o ambiente.
 
+## Passo 4.5 — Cruzar com contrato de execução ativo
+
+Após consumir sensores, cruzar as entregas da spec com os deliverables declarados no contrato ativo da fase (se existir). O contrato é a declaração formal upstream do que a fase promete entregar — se há divergência entre spec e contrato, é sinal de scope drift que precisa ser explícito no output.
+
+### 4.5.1 — Localizar o contrato ativo
+
+Ler `.claude/runtime/contracts/active.json`:
+
+- **Ausente** ou `active_phase_id` é `null` → lacuna: "Projeto não declara contrato ativo. Cobertura de deliverables não pode ser cruzada — verificação opera apenas sobre spec + sensores." Não bloqueia veredicto, apenas documenta.
+- **Presente** → ler o contrato apontado e extrair os `deliverables` (com `id`, `description`, `location`, `verifiable_by`, `required`).
+
+### 4.5.2 — Cruzar deliverables com entregas
+
+Para cada `deliverable` do contrato, tentar mapear para uma das **entregas** identificadas no Passo 2.1. O mapeamento pode ser:
+
+- **Direto** — o deliverable descreve o mesmo comportamento de uma entrega da spec
+- **Indireto** — o deliverable suporta uma entrega (ex: "navegação stack" suporta "usuário navega entre telas")
+- **Sem mapeamento** — o deliverable não tem entrega correspondente na spec (ex: infraestrutura pura, documentação interna)
+
+Tabela de cruzamento:
+
+| Deliverable ID | Descrição | Mapeia para entrega # | Status no contract | Status na spec |
+|---|---|---|---|---|
+| D1 | LoginScreen | Entrega 1 (criar conta) | PASS | IMPLEMENTADO |
+| D2 | Navigation stack | — (infra) | PASS | n/a |
+| D3 | Testes | Entrega 1 + 2 | FAIL (sensor) | PARCIAL (rebaixado por sensor) |
+
+### 4.5.3 — Rebaixar entregas com deliverable required faltando
+
+Se uma entrega da spec está mapeada a um `deliverable` do contrato com `required: true` e o deliverable está `MISSING`, `MISSING_FILE`, `MISSING_PATTERN` ou `FAIL`:
+
+- A entrega da spec DEVE ser rebaixada para `PARCIAL` ou `NÃO IMPLEMENTADA`, mesmo que análise estática tenha encontrado código que parece cobrir o cenário
+- Evidência do rebaixamento: "deliverable `<D_id>` declarado como required no contrato `<phase_id>` está `<status>`"
+
+Razão: o contrato é o compromisso formal da fase. Se o contrato declara que um deliverable é obrigatório e ele está ausente, a fase não entregou — mesmo que o código pareça cobrir o comportamento por outras vias.
+
+### 4.5.4 — Detectar entregas sem deliverable correspondente
+
+Se uma entrega da spec não tem nenhum deliverable do contrato apontando para ela, isso é sinal de:
+
+- **Scope drift positivo** — o projeto implementou algo além do contrato (listar como "escopo extra não declarado no contrato")
+- **Lacuna de contrato** — o contrato não capturou uma entrega essencial da spec (listar como "entrega da spec sem contrato correspondente — scope gap")
+
+Ambos são reportados, mas não bloqueiam veredicto. Indicam que `/contract-create` deveria gerar v2 para alinhar com o escopo real.
+
 ## Passo 5 — Resumo
 
 Ao final, gerar:

@@ -71,6 +71,52 @@ Razão: o princípio de sensores é que o ambiente é autoritativo. Se o agente 
 
 ---
 
+## Bloco 0.5 — Contrato de execução ativo (gate contratual)
+
+Após consumir o veredicto de sensores, o ship-check **deve consumir o veredicto do contrato ativo da fase atual**, quando houver. O contrato é a declaração formal upstream do que a fase promete entregar — ignorá-lo significa ignorar o compromisso declarado pelo próprio projeto.
+
+Este bloco é complementar ao Bloco 0: sensores dizem se o código compila/testa/lint passa; o contrato diz se os deliverables prometidos existem. As duas camadas coexistem e são autoritativas em seus respectivos domínios.
+
+### Passo 0.5.1 — Verificar existência de contrato ativo
+
+Ler `.claude/runtime/contracts/active.json`:
+
+- **Ausente** ou `active_phase_id` é `null` → projeto não declara contrato da fase atual. Registrar como **lacuna explícita** no output (recomendação: "Rodar `/contract-create` para declarar o contrato da fase corrente"). Não bloqueia `PRONTO`, mas aparece como débito contratual no output. Seguir para Bloco A.
+- **Presente** → seguir para Passo 0.5.2.
+
+### Passo 0.5.2 — Verificar status do contrato ativo
+
+Ler o contrato apontado por `active_contract_path`:
+
+- **Status `draft`** → contrato não aprovado. Avisar: "Fase tem contrato em draft, não aprovado. Gate contratual ausente." Seguir para Bloco A, mas tratar como lacuna (similar a `NO_SENSORS`).
+- **Status `approved` ou `in_progress`** → contrato vigente. Invocar `/contract-check` para obter o veredicto atual.
+- **Status `done`** → contrato já fechado. Verificar se a fase fechada corresponde ao escopo que o ship-check está avaliando. Se sim, consumir o veredicto histórico (deve estar `READY_TO_CLOSE` ou equivalente). Se há novas mudanças após o fechamento, avisar staleness.
+- **Status `failed`, `rolled_back` ou `deferred`** → contrato histórico indicando que a fase não foi concluída com sucesso. Isso é sinal forte de que o projeto **não está pronto** — rebaixar para `NÃO PRONTO` e citar o `verdict_reason` no output.
+
+### Passo 0.5.3 — Consumir veredicto de `/contract-check`
+
+Invocar `/contract-check` (ou aplicar a lógica dele internamente) sobre o contrato ativo. Mapear o veredicto para o ship-check:
+
+| Veredicto do contract-check | Ação no ship-check |
+|---|---|
+| `FAILED` | Rebaixar para `NÃO PRONTO` incondicionalmente. O contrato declara que deliverables required estão ausentes ou que sensores required falharam. Listar os itens bloqueantes no output. |
+| `AT_RISK` | Rebaixar para `PRONTO COM RESSALVAS` se o Bloco A fosse reportar `PRONTO`. Listar os deliverables opcionais ausentes, sensores não rodados e manual checks pendentes. |
+| `ON_TRACK` | Permitir que o Bloco A siga normalmente. O contrato está em progresso consistente mas não há evidência de fechamento. Se o ship-check iria reportar `PRONTO`, rebaixar para `PRONTO COM RESSALVAS` com observação "contrato em progresso, sem evidência de READY_TO_CLOSE". |
+| `READY_TO_CLOSE` | Sinal verde do gate contratual. O Bloco A pode reportar `PRONTO` se todos os outros blocos permitirem. |
+
+**Princípio:** o contrato é declarativo e assinado pelo próprio projeto antes da implementação. Se o contrato declara que um deliverable é required e o deliverable está missing, a fase não entregou o que prometeu — ship-check não pode contradizer o compromisso declarado.
+
+### Passo 0.5.4 — Staleness do contrato
+
+Se `/contract-check` reportar staleness (arquivos modificados após a última atualização do contrato, ou `sensors-last-run.json` mais recente que `evidence.sensors_run_id`), adicionar ao output do ship-check o bloco de staleness e recomendar:
+
+- Atualizar manualmente `evidence` do contrato, OU
+- Criar contrato v2 via `/contract-create` se o scope mudou
+
+Staleness por si só não bloqueia `PRONTO`, mas aparece como observação no output.
+
+---
+
 ---
 
 ## Bloco A — Release Viability
@@ -167,7 +213,33 @@ Se o projeto não declara sensores, substituir por:
 - Registrado como débito técnico no ledger
 ```
 
-Depois do Bloco 0, para cada item dos Blocos A e B, reportar:
+Depois do sumário de sensores, incluir o sumário do contrato ativo (Bloco 0.5):
+
+```markdown
+## Contrato de Execução (Bloco 0.5)
+
+- Status: [FAILED | AT_RISK | ON_TRACK | READY_TO_CLOSE | NO_CONTRACT | DRAFT_ONLY]
+- Phase: `[phase_id]`
+- Title: [title]
+- Deliverables required: X PASS / Y FAIL
+- Sensors required: X PASS / Y FAIL / Z NOT_RUN
+- Acceptance criteria: X PASS / Y MANUAL_CHECK / Z FAIL
+- Regra que decidiu o veredicto: [R1-R10 conforme `/contract-check`]
+- Contract file: `.claude/runtime/contracts/phase-<id>.json`
+```
+
+Se o projeto não declara contrato ativo, substituir por:
+
+```markdown
+## Contrato de Execução (Bloco 0.5)
+
+- Status: NO_CONTRACT (lacuna — projeto não declara contrato ativo em `.claude/runtime/contracts/active.json`)
+- Impacto: Gate contratual ausente. Ship-check não pode validar aderência da fase ao compromisso declarado.
+- Recomendação: rodar `/contract-create` para declarar o contrato da fase corrente
+- Registrado como débito contratual no ledger
+```
+
+Depois dos Blocos 0 e 0.5, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|
@@ -204,17 +276,34 @@ Aplicar mapa de veredictos ao resultado final:
 
 ### Veredicto Final
 
-Com base nos resultados:
+Com base nos resultados, aplicar regras de rebaixamento na ordem (primeira que casa decide):
 
-- **PRONTO** — Todos os bloqueantes passam, recomendações sem risco alto, risk-assessment em LOW_RISK
-- **PRONTO COM RESSALVAS** — Bloqueantes passam, mas há recomendações de risco significativo OU risk-assessment reportou MEDIUM_RISK/HIGH_RISK
-- **NÃO PRONTO** — Pelo menos 1 bloqueante falhou OU risk-assessment reportou BLOCKING_RISK
+1. **NÃO PRONTO** se:
+   - Qualquer bloqueante do Bloco A falhou, OU
+   - `sensors-last-run.json` reporta `blocking_failures > 0`, OU
+   - Contrato ativo (Bloco 0.5) está em `FAILED`, `failed`, `rolled_back` ou `deferred`, OU
+   - `risk-assessment` reportou `BLOCKING_RISK`
 
-Incluir:
+2. **PRONTO COM RESSALVAS** se:
+   - Todos os bloqueantes passam, mas há recomendações de risco significativo, OU
+   - `risk-assessment` reportou `MEDIUM_RISK` ou `HIGH_RISK`, OU
+   - Contrato ativo (Bloco 0.5) está em `AT_RISK` ou `ON_TRACK`, OU
+   - Contrato ativo ausente (lacuna `NO_CONTRACT`) ou apenas `DRAFT_ONLY`, OU
+   - `sensors.json` ausente (lacuna `NO_SENSORS`)
+
+3. **PRONTO** se:
+   - Todos os bloqueantes do Bloco A passam, E
+   - `sensors-last-run.json` reporta `PASS` (ou lacuna NO_SENSORS com veredicto consciente), E
+   - Contrato ativo (Bloco 0.5) está em `READY_TO_CLOSE` ou já `done`, E
+   - Recomendações do Bloco B sem risco alto, E
+   - `risk-assessment` em `LOW_RISK`
+
+Incluir no output:
 - Lista de bloqueantes que falharam (se houver)
 - Lista de recomendações de risco alto
 - Lista de itens não verificados com motivo
-- Resultado do risk-assessment com a matriz de riscos citada
+- Resultado do `risk-assessment` com a matriz de riscos citada
+- Veredicto do contrato ativo do Bloco 0.5 com a regra que decidiu (R1–R10 do `/contract-check`)
 
 ---
 

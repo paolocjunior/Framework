@@ -1,0 +1,119 @@
+{
+  "_comment_header": "Template de contrato de execucao de fase. Copiar para .claude/runtime/contracts/phase-<id>.json e preencher conforme a fase real. Ver .claude/rules/execution-contracts.md para o contrato completo. Campos iniciados com '_comment' sao ignorados pelo parser (convencao jsonc-like).",
+  "schema_version": "1",
+  "phase_id": "phase-01-example",
+  "title": "Fase 1 — Exemplo de UI Shell com navegacao",
+  "status": "draft",
+  "created_at": "2025-01-01T00:00:00Z",
+  "approved_at": null,
+  "started_at": null,
+  "finished_at": null,
+  "depends_on": [],
+  "_comment_spec_references": "Lista de requisitos da spec que esta fase vai entregar. IDs devem bater com a nomenclatura da spec (ex: AUTH-01, DASH-03).",
+  "spec_references": [
+    {
+      "requirement_id": "AUTH-01",
+      "description": "Usuario consegue criar conta e fazer login"
+    },
+    {
+      "requirement_id": "DASH-01",
+      "description": "Dashboard inicial mostra resumo do estado"
+    }
+  ],
+  "_comment_preconditions": "Condicoes verificaveis que devem estar satisfeitas antes de a fase comecar. Algumas sao mecanicamente verificaveis (marker existe), outras exigem confirmacao manual.",
+  "preconditions": [
+    "Spec aprovada via /spec-check",
+    "Plano desta fase aprovado via /plan-review",
+    "Marker .claude/runtime/.plan-approved presente"
+  ],
+  "_comment_deliverables": "Artefatos concretos que a fase promete entregar. Cada deliverable precisa ter verifiable_by declarado. required=true significa bloqueante; required=false significa nice-to-have.",
+  "deliverables": [
+    {
+      "id": "D1",
+      "description": "LoginScreen com campos de email e senha",
+      "artifact_type": "file",
+      "location": "src/screens/LoginScreen.tsx",
+      "verifiable_by": "file_exists",
+      "required": true
+    },
+    {
+      "id": "D2",
+      "description": "Navigation stack com rotas Login -> Dashboard",
+      "artifact_type": "code",
+      "location": "src/navigation/AppNavigator.tsx",
+      "verifiable_by": "grep_pattern",
+      "pattern": "createNativeStackNavigator",
+      "required": true
+    },
+    {
+      "id": "D3",
+      "description": "Testes unitarios cobrem componentes principais da fase",
+      "artifact_type": "code",
+      "location": "src/screens/__tests__/",
+      "verifiable_by": "sensor",
+      "sensor_id": "unit-tests",
+      "required": true
+    },
+    {
+      "id": "D4",
+      "description": "Documentacao de navegacao atualizada",
+      "artifact_type": "doc",
+      "location": "docs/navigation.md",
+      "verifiable_by": "file_exists",
+      "required": false
+    }
+  ],
+  "_comment_acceptance_criteria": "Comportamentos observaveis que definem sucesso da fase. Cada criterio deve declarar como sera verificado (sensor, teste manual, inspecao de codigo).",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "description": "Usuario abre o app e ve a tela de login",
+      "linked_requirement": "AUTH-01",
+      "verifiable_by": "manual_test"
+    },
+    {
+      "id": "AC2",
+      "description": "Login com credenciais mockadas navega para dashboard",
+      "linked_requirement": "AUTH-01",
+      "verifiable_by": "manual_test"
+    },
+    {
+      "id": "AC3",
+      "description": "TypeScript compila sem erros",
+      "verifiable_by": "sensor",
+      "sensor_id": "type-check"
+    },
+    {
+      "id": "AC4",
+      "description": "Lint passa sem warnings bloqueantes",
+      "verifiable_by": "sensor",
+      "sensor_id": "lint"
+    }
+  ],
+  "_comment_sensors_required": "Sensores declarados em .claude/runtime/sensors.json que devem estar em status=pass para a fase poder ser fechada. Contrato nao executa sensores — consome resultado de sensors-last-run.json via /contract-check.",
+  "sensors_required": [
+    "unit-tests",
+    "type-check",
+    "lint"
+  ],
+  "_comment_out_of_scope": "O que explicitamente NAO sera feito nesta fase. Evita scope creep e deixa claro para o proximo ciclo o que esta pendente.",
+  "out_of_scope": [
+    "Integracao real com backend de autenticacao (sera fase 2)",
+    "Persistencia de sessao entre restarts (sera fase 3)",
+    "Recuperacao de senha (sera fase 4)",
+    "Login social (OAuth, Google, Apple) — nao pretendido neste produto na versao atual"
+  ],
+  "_comment_rollback_plan": "Como desfazer a fase se ela falhar. Sempre ha um plano — mesmo que seja 'git revert do merge commit'.",
+  "rollback_plan": "Reverter o merge commit da fase via git revert. Remover arquivos criados em src/screens/ e src/navigation/. Validar que a branch principal compila e os testes passam antes de commitar o revert.",
+  "_comment_evidence": "Preenchido durante a execucao. /contract-check atualiza sensors_run_id e sensors_verdict lendo sensors-last-run.json. files_created e files_modified sao populados manualmente ou via ferramentas de analise.",
+  "evidence": {
+    "files_created": [],
+    "files_modified": [],
+    "sensors_run_id": null,
+    "sensors_verdict": null,
+    "commits": []
+  },
+  "_comment_verdict": "Preenchido ao fechar a fase. null enquanto in_progress. Valores: done | failed | rolled_back | deferred. verdict_reason obrigatorio quando verdict != done.",
+  "verdict": null,
+  "verdict_reason": null
+}

@@ -3,6 +3,7 @@
 > **Versão V4 + Camada de Sensores Mecânicos.**
 > V4 adicionou 3 rules (context-loading, review-quality, agent-contracts), 2 agents novos (risk-assessment transversal, qa-auditor especializado), taxonomia formal de agents, política de model com override sonnet/opus, self-check interno de review e protocolo padronizado de contratos.
 > Pós-V4 adiciona a camada de sensores mecânicos: 1 rule (`sensors.md`), 1 command (`/sensors-run`), artefatos de runtime (`sensors.json` + `sensors-last-run.json`) e integração autoritativa com `/ship-check` e `/verify-spec` — fechando a lacuna "o agente narra, o ambiente não confirma" apontada pela análise de Harness Engineering.
+> Pós-V4 adiciona também a camada de execution contracts (upstream): 1 rule (`execution-contracts.md`), 2 commands (`/contract-create`, `/contract-check`), artefatos em `runtime/contracts/` e integração com `/ship-check` (Bloco 0.5) e `/verify-spec` (Passo 4.5) — fechando a lacuna complementar "a fase não declara upstream o que está prometendo entregar".
 > Mudanças puramente aditivas — nada da V3/V4 foi removido ou quebrado. Para o histórico completo, ver `## Changelog` ao final.
 
 ## Princípios
@@ -97,6 +98,9 @@ Regras:
 | `runtime/session-summaries/latest.md` | Resumo da última sessão | Hook session-summary.sh (automático) | Dentro do projeto (Git) |
 | `runtime/sensors.json` | Declaração de sensores mecânicos do projeto (test/lint/build/audit) | Manual, copiado de `sensors.template.json` | Dentro do projeto (Git) |
 | `runtime/sensors-last-run.json` | Veredicto estruturado da última execução dos sensores | `/sensors-run` (automático) | Dentro do projeto (efêmero, pode ficar fora do Git) |
+| `runtime/contracts/phase-<id>.json` | Contrato estruturado de execução da fase — declara upstream o que a fase promete entregar | `/contract-create` (inicial) + edição manual para transições de status | Dentro do projeto (Git) |
+| `runtime/contracts/active.json` | Ponteiro para o contrato da fase ativa | `/contract-create` (atualização automática ao aprovar) | Dentro do projeto (Git) |
+| `runtime/contracts.template.json` | Template de contrato de execução | Referência para `/contract-create` | Dentro do projeto (Git) |
 | `memory/project_spec-status.md` | Snapshot resumido do estado atual | Commands (junto com ledger) | Fora do projeto (memória Claude Code) |
 
 O ledger e o snapshot formam um **trio de sincronização** com o `MEMORY.md` do sistema de memória. Quando o estado do projeto muda, os 3 devem ser atualizados juntos. Ver `.claude/rules/state-sync.md` para o protocolo completo e `.claude/runtime/project-status.template.md` para o formato do snapshot.
@@ -286,6 +290,7 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `.claude/rules/review-quality.md` — critérios de qualidade de outputs de review (self-check interno obrigatório)
 - `.claude/rules/agent-contracts.md` — protocolo de invocação e parsing de agents (formato de input, output, modos de falha)
 - `.claude/rules/sensors.md` — protocolo de sensores mecânicos (exit code é autoridade, não narrativa do agente)
+- `.claude/rules/execution-contracts.md` — protocolo de contratos de execução estruturados por fase (upstream declaration of phase commitments)
 
 ## Slash Commands
 
@@ -307,6 +312,8 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `/memory-consolidate` — consolidar memória do projeto (reorganizar ledger, merge feedbacks)
 - `/skills-gap` — identificar lacunas de cobertura e sugerir skills externas complementares
 - `/sensors-run` — executar sensores mecânicos declarados em `sensors.json` e produzir veredicto estruturado por exit code
+- `/contract-create` — criar contrato estruturado de execução a partir do plano aprovado (upstream declaration de deliverables, acceptance criteria, sensors required e out_of_scope)
+- `/contract-check` — verificar estado atual do projeto contra o contrato ativo da fase (validação determinística read-only, veredicto via tabela R1-R10)
 
 ## Subagents
 
@@ -353,6 +360,37 @@ O command invocador pode sobrescrever o model via parâmetro `model` da Agent to
 2. Se a tarefa é estrutural (presença, contagem, classificação por regras determinísticas) → `sonnet` default com override condicional para `opus` quando a criticidade do contexto justificar
 
 ## Changelog
+
+### Pós-V4 — Execution Contracts (upstream)
+
+Terceiro item da fila de prioridades derivada da análise de Harness Engineering. Sensores (item #2) fecharam a lacuna "o ambiente não confirma"; contratos fecham a lacuna complementar **"a fase não declara upstream o que está prometendo entregar"**. Até agora, o plano descrevia como implementar (prosa) e o ledger registrava o histórico (eventos), mas nada declarava formalmente o compromisso da fase em formato estruturado e mecanicamente verificável.
+
+O contrato é a declaração upstream do que a fase promete. O plano continua sendo a prosa de COMO implementar. O ledger continua sendo o histórico. Os sensores continuam sendo a validação mecânica de comportamento. O contrato soma-se a esses três como a **declaração estruturada do escopo comprometido** — é o artefato que `/contract-check`, `/ship-check` e `/verify-spec` consomem para validar progresso e aderência ao compromisso.
+
+**Rules novas (1):**
+- `.claude/rules/execution-contracts.md` — contrato completo de execution contracts. Schema JSON (phase_id, title, status, deliverables, acceptance_criteria, sensors_required, preconditions, out_of_scope, rollback_plan, evidence), lifecycle (draft → approved → in_progress → done/failed/rolled_back/deferred), regras de verificação mecânica por `verifiable_by` (file_exists, grep_pattern, sensor, manual_check), integração com sensores como autoridade, vedações, bootstrap
+
+**Commands novos (2):**
+- `.claude/commands/contract-create.md` — cria contrato estruturado a partir do plano aprovado. 8 passos (verificar pré-requisitos, ler plano, consultar sensores, sintetizar draft, apresentar ao usuário, persistir, atualizar ledger, output). Requer plan-review aprovado como pré-requisito. Transição `draft → approved` exige segunda confirmação explícita do usuário
+- `.claude/commands/contract-check.md` — verifica estado do projeto contra o contrato ativo da fase. **Estritamente read-only** — nunca modifica contrato, ledger ou active.json. 9 passos (localizar contrato, verificar staleness, verificar status, verificar preconditions, verificar deliverables, verificar sensors_required, verificar acceptance_criteria, agregar veredicto, reportar). Veredicto determinístico via tabela R1-R10 ordenada (FAILED → AT_RISK → ON_TRACK → READY_TO_CLOSE)
+
+**Artefatos novos de runtime (3):**
+- `.claude/runtime/contracts/` — diretório de contratos por fase (um arquivo JSON por phase_id, ex: `phase-01-ui-shell.json`)
+- `.claude/runtime/contracts/active.json` — ponteiro para o contrato da fase ativa (atualizado automaticamente por `/contract-create` ao aprovar)
+- `.claude/runtime/contracts.template.json` — template de contrato de execução com exemplos de deliverables, acceptance_criteria e sensors_required
+
+**Commands modificados (2):**
+- `ship-check.md` — adicionado **Bloco 0.5 — Contrato de execução ativo (gate contratual)** entre Bloco 0 (sensores) e Bloco A. Consome `active.json`, invoca `/contract-check` quando status é `approved` ou `in_progress`, e mapeia veredicto do contract-check para veredicto do ship-check: `FAILED` → `NÃO PRONTO` (incondicional), `AT_RISK` → `PRONTO COM RESSALVAS`, `ON_TRACK` → rebaixamento, `READY_TO_CLOSE` → libera Bloco A. Formato de saída atualizado com bloco de Contrato de Execução. Veredicto Final reescrito com 3 regras ordenadas considerando contrato + sensores + risk-assessment + Bloco A
+- `verify-spec.md` — adicionado **Passo 4.5 — Cruzar com contrato de execução ativo** após consumo de sensores. Cruza entregas da spec com deliverables do contrato (mapeamento Direto/Indireto/Sem mapeamento). Entrega mapeada a deliverable `required: true` com status `MISSING`/`FAIL` é **rebaixada** para PARCIAL/NÃO IMPLEMENTADA mesmo que análise estática tenha encontrado código — o contrato é autoridade sobre compromisso da fase. Detecta scope drift positivo (código além do contrato) e scope gap (spec com entrega sem contrato)
+
+**Mudanças conceituais:**
+- **Contrato é upstream, ledger é histórico, plano é prosa, sensores são mecânica.** Os quatro artefatos coexistem sem sobreposição: contrato declara O QUE, plano descreve COMO, ledger registra O QUE ACONTECEU, sensores verificam SE ESTÁ FUNCIONANDO
+- **Opt-in pattern (mesmo dos sensores):** projetos sem contratos declarados operam em modo degradado. Commands consumidores reportam a ausência como lacuna explícita (NO_CONTRACT), não bloqueiam automaticamente. Declaração é responsabilidade do projeto, não inferida pelo framework
+- **Contrato approved exige segunda confirmação.** O usuário vê o draft, revisa campo por campo, e confirma explicitamente. Não é automático. Contratos aprovados representam compromisso formal — mudança de escopo exige novo contrato (v2), não edição silenciosa do anterior
+- **Sensores são autoridade sobre comportamento mecânico, contratos são autoridade sobre compromisso da fase.** Se o contrato diz `deliverable D3 é required` e o sensor que o cobre está `FAIL_BLOCKING`, o `/contract-check` retorna `FAILED` — nenhum agente pode reinterpretar o output como sucesso. Princípio de autoridade do ambiente estendido: hooks + sensores + contratos são as três camadas que o agente não pode contradizer
+- **`/contract-check` é read-only absoluto.** Validação estática, nunca modifica artefato. Transições de status (draft→approved, approved→in_progress, in_progress→done/failed) são feitas por `/contract-create`, pelo command de início de fase, ou manualmente pelo usuário — nunca inferidas pelo contract-check. Isso garante que rodar `/contract-check` múltiplas vezes é seguro e determinístico
+
+**Regra de auto-modificação do framework (mantida da entrada anterior):** trabalho sobre o próprio framework (criar rule, command, template) não aplica o workflow padrão (`/plan-review`, Codex review, marker `.plan-approved`). O ciclo `/plan` → aprovação direta do usuário → implementação é suficiente.
 
 ### Pós-V4 — Camada de Sensores Mecânicos
 

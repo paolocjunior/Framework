@@ -1,6 +1,6 @@
-# Claude Code Quality Framework V4 + Sensores Mecânicos
+# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts
 
-Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review) e **sensores mecânicos** (exit code como autoridade sobre comportamento, não narrativa do agente).
+Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre comportamento, não narrativa do agente) e **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável).
 
 ## Estrutura
 
@@ -10,13 +10,14 @@ projeto/
 ├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
 └── .claude/
     ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 25 checklists de qualidade
+    ├── rules/                         # 26 checklists de qualidade
     │   ├── agent-contracts.md         # Protocolo de invocação e parsing de agents
     │   ├── code-review.md             # Critérios de revisão
     │   ├── context-loading.md         # Carregamento de contexto no início de commands
     │   ├── database-security.md       # Segurança de banco de dados
     │   ├── design-system-quality.md   # Qualidade visual
     │   ├── evidence-tracing.md        # Formato de reporte
+    │   ├── execution-contracts.md     # Contratos estruturados de execução por fase (upstream)
     │   ├── execution-tracking.md      # Rastreamento de fases
     │   ├── implementation-quality.md  # Padrões de erro em implementação
     │   ├── integration-checklist.md   # Migração mock para API real
@@ -36,7 +37,7 @@ projeto/
     │   ├── structural-quality.md      # Qualidade estrutural
     │   ├── testing.md                 # Padrões de testes
     │   └── web-api-security.md        # Segurança web e API
-    ├── commands/                       # 18 slash commands
+    ├── commands/                       # 20 slash commands
     ├── agents/                         # 8 subagents (6 especializados + 2 transversais)
     ├── hooks/                          # 11 scripts de validação automática
     └── runtime/
@@ -47,6 +48,10 @@ projeto/
         ├── sensors.template.json      # Template de declaração de sensores mecânicos
         ├── sensors.json               # Declaração de sensores do projeto (criado por cópia)
         ├── sensors-last-run.json      # Veredicto estruturado da última execução (efêmero)
+        ├── contracts.template.json    # Template de contrato de execução por fase
+        ├── contracts/                 # Contratos estruturados por fase
+        │   ├── active.json            # Ponteiro para contrato da fase ativa
+        │   └── phase-<id>.json        # Um arquivo por fase (criado por /contract-create)
         ├── baseline-feedbacks/        # Templates de feedbacks comportamentais
         └── session-summaries/         # Resumos de sessão (gerados automaticamente)
 ```
@@ -132,6 +137,8 @@ Princípio: **se o comando retorna 0, o sensor passou — nenhum agente pode rei
 | `/memory-consolidate` | Consolidar memória (ledger + feedbacks) |
 | `/skills-gap` | Identificar lacunas e sugerir skills |
 | `/sensors-run` | Executar sensores mecânicos e produzir veredicto por exit code |
+| `/contract-create` | Criar contrato estruturado de execução a partir do plano aprovado |
+| `/contract-check` | Verificar estado do projeto contra contrato ativo (read-only, veredicto R1-R10) |
 
 ## Subagents
 
@@ -177,5 +184,22 @@ Resposta direta à análise de Harness Engineering (Fowler + Anthropic + OpenAI)
 - **1 hook corrigido**: `loop-detection.sh` — 5ª edição do mesmo arquivo agora emite `{decision: "block"}` (PostToolUse bloqueante) em vez de apenas mensagem de alerta, fechando a contradição entre promessa semântica e comportamento real
 
 **Princípio:** hooks e sensores coexistem sem sobreposição. Hooks rodam em evento (universais, baixo custo). Sensores rodam sob demanda (declarativos por projeto, médio a alto custo). As duas camadas são complementares.
+
+## Pós-V4 — Execution Contracts (upstream)
+
+Terceiro item da fila de prioridades derivada da análise de Harness Engineering. Sensores fecharam a lacuna "o ambiente não confirma"; contratos fecham a lacuna complementar **"a fase não declara upstream o que está prometendo entregar"** em formato estruturado e mecanicamente verificável.
+
+O contrato é a declaração upstream do que a fase promete. O plano continua sendo a prosa de COMO implementar. O ledger continua sendo o histórico. Os sensores continuam sendo a validação mecânica de comportamento. Contratos somam-se a esses três como a **declaração estruturada do escopo comprometido**.
+
+- **1 rule nova**: `execution-contracts.md` — schema JSON completo, lifecycle (`draft → approved → in_progress → done/failed/rolled_back/deferred`), `verifiable_by` mecânico (file_exists, grep_pattern, sensor, manual_check), integração com sensores como autoridade
+- **2 commands novos**:
+  - `/contract-create` — cria contrato a partir do plano aprovado; exige segunda confirmação explícita para transicionar draft → approved
+  - `/contract-check` — verificação **read-only absoluta** do estado do projeto contra o contrato ativo; veredicto determinístico via tabela R1-R10 (FAILED → AT_RISK → ON_TRACK → READY_TO_CLOSE)
+- **3 artefatos novos em runtime**: `contracts.template.json`, `contracts/` (um JSON por fase), `contracts/active.json` (ponteiro)
+- **2 commands modificados**:
+  - `/ship-check` — novo **Bloco 0.5** consome contrato ativo. `FAILED` do contract-check força `NÃO PRONTO` incondicional; `AT_RISK` força `PRONTO COM RESSALVAS`
+  - `/verify-spec` — novo **Passo 4.5** cruza deliverables do contrato com entregas da spec. Entrega mapeada a deliverable `required` com status `MISSING`/`FAIL` é **rebaixada** — o contrato é autoridade sobre compromisso da fase
+
+**Princípio:** contrato (O QUE), plano (COMO), ledger (O QUE ACONTECEU) e sensores (SE ESTÁ FUNCIONANDO) são artefatos complementares sem sobreposição. Opt-in pattern mesmo dos sensores: projetos sem `contracts/` declarados operam em modo degradado (NO_CONTRACT como lacuna, não bloqueio).
 
 Para o changelog completo, ver seção `## Changelog` no `CLAUDE.md`.
