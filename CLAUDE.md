@@ -33,7 +33,7 @@
 3. **Planejar**: descrever o que será feito e por quê, antes de executar
 4. **Verificar plano**: `/plan-review` é OBRIGATÓRIO antes de qualquer implementação. ExitPlanMode NÃO substitui `/plan-review`. Implementação sem plan-review é violação de workflow. O hook `pre-implementation-gate.sh` bloqueia mecanicamente a criação de código-fonte até que `/plan-review` crie o marker `.claude/runtime/.plan-approved`
 5. **Implementar**: código incremental, testável, uma mudança por vez
-6. **Validar**: verificações automáticas de sintaxe, secrets expostos e código inseguro (via hooks). Linters e testes específicos devem ser configurados na Camada 2 (por projeto)
+6. **Validar**: duas camadas complementares. Hooks (Camada 2) rodam automaticamente por evento e pegam erros objetivos em cada edição — sintaxe, secrets expostos, padrões inseguros, loop de fix, gate de implementação. Sensores mecânicos (camada ortogonal) rodam sob demanda via `/sensors-run` e cobrem correção funcional declarativa — testes, lint, type-check, build, audit de dependências — com o exit code do comando como autoridade sobre o veredicto. Sensores são declarados por projeto em `.claude/runtime/sensors.json`; consumidores downstream (`/ship-check`, `/verify-spec`) leem o resultado estruturado em `sensors-last-run.json`
 7. **Justificar**: cada escolha técnica deve ter uma razão documentável
 8. **Verificar entrega**: confirmar que o código implementado corresponde ao que a especificação prometeu (`/verify-spec`) — gate de aderência funcional
 

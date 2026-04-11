@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Definir sensores mecânicos como artefato first-class do framework. Um sensor é uma **verificação declarativa executada pelo ambiente**, cujo veredicto vem do **exit code de um comando**, não da narrativa do agente. Esta rule institui o contrato entre a declaração (`sensors.json`), a execução (`/sensors-run`) e o consumo pelos demais commands (`/ship-check`, `/verify-spec`, `/plan-review`).
+Definir sensores mecânicos como artefato first-class do framework. Um sensor é uma **verificação declarativa executada pelo ambiente**, cujo veredicto vem do **exit code de um comando**, não da narrativa do agente. Esta rule institui o contrato entre a declaração (`sensors.json`), a execução (`/sensors-run`) e o consumo pelos demais commands (`/ship-check` e `/verify-spec`). A integração com `/plan-review` é possibilidade futura, não contrato vigente — ver nota na seção "Integração com commands consumidores".
 
 Esta rule existe para fechar a lacuna central apontada na análise de Harness Engineering: **o agente não pode mais dizer que validou; o ambiente precisa dizer**. Hooks já pegam erros objetivos por evento (secrets, syntax, gate de implementação). Sensores pegam validação mecânica sob demanda — testes, lint, type-check, build, audit — e elevam isso a contrato declarativo versionado junto com o código.
 
