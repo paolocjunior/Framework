@@ -105,7 +105,7 @@
   ],
   "_comment_rollback_plan": "Como desfazer a fase se ela falhar. Sempre ha um plano — mesmo que seja 'git revert do merge commit'.",
   "rollback_plan": "Reverter o merge commit da fase via git revert. Remover arquivos criados em src/screens/ e src/navigation/. Validar que a branch principal compila e os testes passam antes de commitar o revert.",
-  "_comment_evidence": "Preenchido durante a execucao. /contract-check atualiza sensors_run_id e sensors_verdict lendo sensors-last-run.json. files_created e files_modified sao populados manualmente ou via ferramentas de analise.",
+  "_comment_evidence": "Preenchido durante a execucao MANUALMENTE pelo usuario. /contract-check e read-only absoluto — le evidence mas nunca escreve. Para atualizar sensors_run_id, sensors_verdict, files_created, files_modified ou commits, editar este arquivo manualmente apos verificar o estado real do projeto, ou criar contrato v2 via /contract-create se houver scope change material.",
   "evidence": {
     "files_created": [],
     "files_modified": [],

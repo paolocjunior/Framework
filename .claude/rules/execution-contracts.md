@@ -149,10 +149,10 @@ Se o arquivo não existe ou `active_phase_id` é null, não há fase ativa — n
 Um contrato em `approved` ou `in_progress` é considerado stale se:
 
 1. Arquivos referenciados em `deliverables[].location` foram modificados mas `evidence.files_modified` não foi atualizado
-2. `sensors-last-run.json` tem `finished_at` mais recente que o último `contract-check` mas o resultado não está refletido em `evidence.sensors_verdict`
+2. `sensors-last-run.json` existe e o `run_id` diverge de `evidence.sensors_run_id` registrado no contrato (inclui o caso `evidence.sensors_run_id == null` quando um run posterior a `approved_at` já existe), indicando que a evidência do contrato não reflete a última execução mecânica
 3. Plano correspondente foi modificado após `approved_at` (indicador de possível scope change)
 
-Quando stale, consumers devem recomendar rodar `/contract-check` para atualizar evidência antes de tomar decisão.
+Quando stale, `/contract-check` **detecta e reporta** o estado stale no output — mas não atualiza evidência. O command é read-only absoluto e nunca modifica o contrato, o ledger ou `active.json`. A atualização da evidência é responsabilidade humana: o usuário deve **editar manualmente** os campos de `evidence` no contrato (ex: `evidence.sensors_run_id`, `evidence.files_modified`, `evidence.sensors_verdict`) para refletir o estado atual, ou, se o stale indicar scope change material (ex: plano modificado após `approved_at`), **criar um contrato v2** via `/contract-create` com justificativa registrada no `verdict_reason` do contrato anterior. Consumers downstream (`/ship-check`, `/verify-spec`) que encontrem um contrato stale devem reportar a staleness como lacuna informativa e recomendar a atualização humana antes da decisão final — nunca assumir que rodar `/contract-check` resolve a staleness, porque não resolve.
 
 ## Vedações
 

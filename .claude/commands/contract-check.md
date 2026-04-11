@@ -67,19 +67,22 @@ Esta é uma lacuna, não um erro. Contratos são opt-in.
 
 Aplicar as 3 regras de staleness definidas em `.claude/rules/execution-contracts.md`:
 
-1. **Arquivos referenciados foram modificados após a última atualização do contrato?**
-   - Para cada `deliverable.location` que aponta para um arquivo existente, comparar `mtime` do arquivo com `last_updated` em `active.json`. Se arquivo é mais recente → possível staleness.
-2. **`sensors-last-run.json` é mais recente que o registro de evidência no contrato?**
-   - Se `evidence.sensors_run_id` está vazio mas `sensors-last-run.json` existe e é posterior a `approved_at` → staleness.
+1. **Arquivos referenciados foram modificados após `approved_at` sem que `evidence.files_modified` tenha sido atualizado manualmente?**
+   - Para cada `deliverable.location` que aponta para um arquivo existente, comparar `mtime` do arquivo com `approved_at` do contrato. Se o arquivo é mais recente E o path não aparece em `evidence.files_modified` → possível staleness (o usuário modificou o arquivo mas não registrou em `evidence`).
+2. **`sensors-last-run.json` diverge de `evidence.sensors_run_id`?**
+   - Se `evidence.sensors_run_id == null` E `sensors-last-run.json` existe com `finished_at` posterior a `approved_at` → staleness.
+   - Se `evidence.sensors_run_id != null` E `sensors-last-run.json.run_id` é diferente → staleness (há execução mais recente não refletida em evidence).
 3. **O plano correspondente foi modificado após `approved_at`?**
    - Verificar mtime do plano (se localizável) contra `approved_at`. Se mais recente → possível scope change não capturado.
 
-Staleness **não** bloqueia o command — o contract-check roda mesmo com contrato stale. Apenas adicionar ao output um bloco:
+Staleness **não** bloqueia o command — o contract-check roda mesmo com contrato stale e produz veredicto normalmente. O command apenas **detecta e reporta** — nunca atualiza `evidence`, `active.json` ou o próprio contrato. A recuperação da staleness é sempre humana. Adicionar ao output um bloco:
 
 ```markdown
 ## Aviso de staleness
-- [tipo] — [descrição]
-- Recomendação: rodar `/contract-create` v2 se houve scope change, ou aceitar staleness como trivial
+- [tipo] — [descrição da divergência]
+- Recomendação: o command é read-only e não pode atualizar evidence. O usuário deve:
+  - Editar manualmente `evidence.sensors_run_id` / `evidence.files_modified` no contrato para refletir o estado atual, OU
+  - Criar contrato v2 via `/contract-create` se o stale indica scope change material (regra 3)
 ```
 
 ### Passo 3 — Verificar status do contrato
