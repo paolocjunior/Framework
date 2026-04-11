@@ -133,10 +133,10 @@ Para cada expectation em `expectations[]`:
 
 - Parse stdout como JSON (via `jq`)
 - Se parse falhar → `error`, evidência `"stdout is not valid JSON"`
-- Aplicar JSONPath (`target`) via `jq`
-- `actual` = valor retornado
+- Aplicar filtro `jq` a partir de `target` (ex: `.data.status`)
+- `actual` = valor retornado pelo filtro `jq`
 - `pass` se `actual == expected`, `fail` se diferente
-- Evidência: `"jq path <target> returned <actual>, expected <expected>"`
+- Evidência: `"jq filter <target> returned <actual>, expected <expected>"`
 
 #### `kind: file_content`
 

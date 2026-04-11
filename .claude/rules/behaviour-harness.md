@@ -84,7 +84,7 @@ Cada expectation tem um `kind` que define como a comparação é feita.
 |---|---|---|
 | `exit_code` | Exit code do `action.command` bate com o valor esperado | `expected` (integer, ex: `0`) |
 | `stdout_contains` | stdout do comando contém o pattern (substring ou regex) | `expected` (string ou regex) |
-| `stdout_json_path` | stdout é JSON válido e o caminho JSONPath avaliado bate com `expected` | `target` (JSONPath), `expected` (valor literal) |
+| `stdout_json_path` | stdout é JSON válido e o filtro `jq` avaliado bate com `expected` | `target` (filtro `jq`, ex: `.data.status`), `expected` (valor literal) |
 | `file_content` | Arquivo em `target` contém pattern em `expected` | `target` (path), `expected` (string/regex) |
 | `file_exists_after` | Arquivo em `target` existe **após** a execução do comando (side-effect esperado e idempotente) | `target` (path) |
 | `not_contains` | stdout do comando NÃO contém o pattern (assertion negativa) | `expected` (string/regex) |
