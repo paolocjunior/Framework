@@ -33,26 +33,33 @@ else
 fi
 
 # 4. Hooks referenciados existem e têm permissão de execução
+# NOTA: o check [ -x ] nao e confiavel em Windows (Git Bash/Cygwin) porque
+# NTFS nao tem bit POSIX +x. Pular o check em msys/cygwin — o check de
+# existencia [ -f ] continua valido em todos os sistemas.
 if command -v jq &>/dev/null && [ -f "$PROJECT_DIR/.claude/settings.json" ]; then
     HOOKS=$(jq -r '.. | .command? // empty' "$PROJECT_DIR/.claude/settings.json" 2>/dev/null | tr -d '\r' || true)
     for HOOK_CMD in $HOOKS; do
         RESOLVED="${HOOK_CMD/\$CLAUDE_PROJECT_DIR/$PROJECT_DIR}"
         if [ ! -f "$RESOLVED" ]; then
             ERRORS="${ERRORS}ERRO: Hook referenciado nao existe: ${HOOK_CMD}\n"
-        elif [ ! -x "$RESOLVED" ]; then
-            ERRORS="${ERRORS}AVISO: Hook sem permissao de execucao: ${HOOK_CMD}\n"
+            continue
         fi
+        case "$OSTYPE" in
+            msys*|cygwin*)
+                : # Windows: bit +x nao confiavel, skip
+                ;;
+            *)
+                if [ ! -x "$RESOLVED" ]; then
+                    ERRORS="${ERRORS}AVISO: Hook sem permissao de execucao: ${HOOK_CMD}\n"
+                fi
+                ;;
+        esac
     done
 fi
 
 # 5. Ledger existe
 if [ ! -f "$PROJECT_DIR/.claude/runtime/execution-ledger.md" ]; then
     ERRORS="${ERRORS}INFO: execution-ledger.md nao encontrado. Copiar template do framework se necessario.\n"
-fi
-
-# 6. Profile-guard requer bash 4+
-if [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
-    ERRORS="${ERRORS}AVISO: bash ${BASH_VERSION} detectado. profile-guard.sh requer bash 4.0+ para associative arrays.\n"
 fi
 
 # Emitir resultado apenas se houver problemas

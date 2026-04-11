@@ -17,6 +17,17 @@ Este command NAO implementa nada. Apenas revisa o plano e reporta.
 - Antes de autorizar implementacao
 - Quando um plano for corrigido e precisar ser revalidado
 
+## Carregar contexto (obrigatório antes de qualquer outra ação)
+
+Aplicar o protocolo de `.claude/rules/context-loading.md` antes de revisar o plano:
+
+1. Ler `memory/project_spec-status.md` (snapshot) — se ausente, ler `runtime/execution-ledger.md`
+2. Verificar fase atual, Open Items e bloqueios
+3. Declarar no início do output: `Contexto carregado: [fase atual], [open items: N], [bloqueios: N]`
+4. Se snapshot e ledger divergirem, aplicar `state-sync.md` antes de prosseguir
+
+Sem contexto carregado, a revisão pode aprovar plano que ignora Open Items ativos ou que retrabalha decisões já resolvidas.
+
 ## Execucao
 
 ### Passo 1 — Identificar contexto
@@ -94,6 +105,22 @@ mkdir -p .claude/runtime && touch .claude/runtime/.plan-approved
 ```
 
 Se o veredito for NEEDS_REVISION ou NEEDS_HUMAN_REVIEW, NÃO criar o marker. O hook continuará bloqueando código-fonte até que o plano seja corrigido e re-aprovado.
+
+### Passo 4.5 — Self-check de qualidade do output
+
+**Antes de publicar o veredito ao usuário**, aplicar o checklist de `.claude/rules/review-quality.md`:
+
+- Escopo analisado foi declarado (quais arquivos do plano, qual spec, qual fase)?
+- Escopo NÃO analisado foi declarado (o que ficou fora e por quê)?
+- Cada finding tem localização concreta e evidência verificável?
+- Cada finding tem severidade declarada (BLOCKING / NON-BLOCKING / EDITORIAL)?
+- Nenhuma frase vaga de confiança ("parece coerente", "provavelmente ok")?
+- Veredito está na lista permitida (APPROVED / APPROVED_WITH_CORRECTIONS / NEEDS_REVISION / NEEDS_HUMAN_REVIEW)?
+- Cada finding tem recomendação concreta de correção?
+
+Se qualquer item falhar, corrigir o output e re-aplicar o checklist antes de publicar. Se após correção ainda falhar (evidência requerida não obtida, por exemplo), rebaixar para `NEEDS_HUMAN_REVIEW` com lista explícita do que não pôde ser verificado.
+
+Este self-check é a camada interna obrigatória. O Codex (`/codex:adversarial-review`) é a camada externa cross-model complementar, aplicada em projetos após a publicação do veredito.
 
 ### Passo 5 — Output
 

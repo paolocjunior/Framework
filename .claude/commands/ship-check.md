@@ -4,6 +4,18 @@ allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(w
 context: fork
 ---
 
+## Carregar contexto (obrigatório antes de qualquer outra ação)
+
+Aplicar o protocolo de `.claude/rules/context-loading.md` antes de executar a verificação pré-entrega:
+
+1. Ler `memory/project_spec-status.md` (snapshot) — se ausente, ler `runtime/execution-ledger.md`
+2. Verificar Open Items, bloqueios, fases pendentes e aprovações parciais
+3. Declarar no início do output: `Contexto carregado: [fase atual], [open items: N], [bloqueios: N]`
+4. Se snapshot e ledger divergirem, aplicar `state-sync.md` antes de prosseguir
+5. **Fase pendente, item `DEFERRED` ou bloqueio ativo = ship-check não pode reportar PRONTO.** Esses itens devem aparecer explicitamente no output como motivos de rebaixamento.
+
+---
+
 Realizar verificação pré-entrega do projeto, avaliando se está pronto para distribuição, deploy ou entrega.
 
 Os comandos e ferramentas de verificação devem ser adaptados à stack do projeto (ex.: npm/yarn/pnpm/bun, pip/pytest, cargo, gradle/gradlew, xcodebuild/swift, dotnet, cmake/make, go, unity/godot export pipeline). Os itens da checklist são universais; os comandos específicos variam por tecnologia.
@@ -95,18 +107,40 @@ Definição de status:
 - **N/A** — item não se aplica à stack, arquitetura ou escopo do projeto
 - **NÃO VERIFICADO** — item se aplica, mas não pôde ser confirmado com evidência disponível
 
+### Avaliação final de risco (sempre)
+
+Antes de publicar o veredicto final, **sempre** invocar o agent `risk-assessment` via Agent tool — esta é a última barreira antes da entrega. Diferente do `/plan`, onde a invocação é condicional, aqui é obrigatória e incondicional.
+
+**Invocação:**
+- **Objetivo:** "Avaliação final de risco arquitetural e operacional antes de entrega"
+- **Contexto:** resultados do Bloco A, fase atual do ledger, Open Items abertos, mudanças recentes registradas, classes de risco aplicáveis ao projeto
+- **Escopo:** apenas as 5 categorias do agent (irreversibilidade, incógnitas, ponto único de falha, débito técnico, risco de migração) — não duplicar análise de build/testes/lint/secrets (já cobertos pelo Bloco A)
+- **Critérios de veredicto:** LOW_RISK | MEDIUM_RISK | HIGH_RISK | BLOCKING_RISK conforme `.claude/rules/agent-contracts.md`
+
+**Override de model condicional:** se o projeto é financeiro, tem operações irreversíveis em produção, migração de dados em larga escala, ou tocou código de classes B/C/D da Security Regression Matrix — passar `model: opus` na invocação. Caso contrário, usar `sonnet` default.
+
+Aplicar mapa de veredictos ao resultado final:
+
+| Veredicto do agent | Ação no ship-check |
+|---|---|
+| `LOW_RISK` | Veredicto final permanece conforme Bloco A (PRONTO / PRONTO COM RESSALVAS / NÃO PRONTO) |
+| `MEDIUM_RISK` | Se o Bloco A iria reportar PRONTO, rebaixar para PRONTO COM RESSALVAS e listar os riscos em DELIVERY |
+| `HIGH_RISK` | Rebaixar para PRONTO COM RESSALVAS com os riscos destacados no topo do DELIVERY, independente do Bloco A |
+| `BLOCKING_RISK` | Forçar veredicto NÃO PRONTO, independente do Bloco A — nenhum ship passa com BLOCKING_RISK ativo |
+
 ### Veredicto Final
 
 Com base nos resultados:
 
-- **PRONTO** — Todos os bloqueantes passam, recomendações sem risco alto
-- **PRONTO COM RESSALVAS** — Bloqueantes passam, mas há recomendações de risco significativo
-- **NÃO PRONTO** — Pelo menos 1 bloqueante falhou
+- **PRONTO** — Todos os bloqueantes passam, recomendações sem risco alto, risk-assessment em LOW_RISK
+- **PRONTO COM RESSALVAS** — Bloqueantes passam, mas há recomendações de risco significativo OU risk-assessment reportou MEDIUM_RISK/HIGH_RISK
+- **NÃO PRONTO** — Pelo menos 1 bloqueante falhou OU risk-assessment reportou BLOCKING_RISK
 
 Incluir:
 - Lista de bloqueantes que falharam (se houver)
 - Lista de recomendações de risco alto
 - Lista de itens não verificados com motivo
+- Resultado do risk-assessment com a matriz de riscos citada
 
 ---
 

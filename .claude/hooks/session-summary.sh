@@ -1,10 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# session-summary.sh — Gera resumo da sessão ao parar o Claude
+# session-summary.sh — Gera resumo da sessao ao parar o Claude
 # Evento: Stop
-# Lê last_assistant_message via JSON stdin (não env var)
-# Escreve em session-summaries/latest.md — NUNCA no execution-ledger.md
+#
+# Contrato do payload Stop (oficialmente documentado em
+# docs.claude.com/en/docs/claude-code/hooks#stop-input):
+#   - session_id           — identificador da sessao
+#   - stop_hook_active     — boolean para evitar loop infinito
+#   - last_assistant_message — string, conteudo da ultima resposta de Claude
+#   - transcript_path      — caminho para o JSONL completo (nao usado aqui)
+#
+# Este hook le last_assistant_message diretamente pois e o campo oficial
+# do contrato. Nao ha necessidade de parsear transcript_path.
+#
+# Stop hooks NAO aceitam systemMessage no stdout — apenas {"decision": "block",
+# "reason": "..."} ou ausencia de output. Este hook nao bloqueia o stop,
+# entao nao emite nada no stdout. O artefato escrito em session-summaries/
+# e o unico output observavel.
+
+# Dependencia jq: se nao existe, nao ha como parsear o payload.
+# Este hook nao e de bloqueio (Stop event), entao falha silenciosa com
+# exit 0 e preserva comportamento normal de encerramento da sessao.
+if ! command -v jq &>/dev/null; then
+    exit 0
+fi
 
 # Ler JSON do stdin
 INPUT=$(cat)
@@ -44,5 +64,5 @@ ${SUMMARY_CONTENT:-"(sem conteudo capturado)"}
 - Retomar de onde parou com base no contexto acima
 EOF
 
-echo "{\"systemMessage\": \"[SESSION SUMMARY] Resumo salvo em .claude/runtime/session-summaries/latest.md\"}"
+# Stop hooks nao emitem systemMessage no stdout — sair limpo.
 exit 0

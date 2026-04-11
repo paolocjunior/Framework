@@ -4,6 +4,18 @@ allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(w
 context: fork
 ---
 
+## Carregar contexto (obrigatório antes de qualquer outra ação)
+
+Aplicar o protocolo de `.claude/rules/context-loading.md` antes de iniciar a verificação pós-implementação:
+
+1. Ler `memory/project_spec-status.md` (snapshot) — se ausente, ler `runtime/execution-ledger.md`
+2. Verificar fase atual, Open Items e bloqueios — a verificação precisa saber quais requisitos estão no escopo da entrega atual vs DEFERRED
+3. Declarar no início do output: `Contexto carregado: [fase atual], [open items: N], [bloqueios: N]`
+4. Se snapshot e ledger divergirem, aplicar `state-sync.md` antes de prosseguir
+5. **Requisitos marcados como `DEFERRED` no ledger não devem ser reportados como falhas de conformidade** — devem aparecer separadamente como "fora do escopo da entrega atual, rastreados como DEFERRED"
+
+---
+
 Verificar se o código implementado entrega o que a especificação original prometeu.
 
 Este comando NÃO avalia qualidade de código (use `/review` para isso) nem prontidão para deploy (use `/ship-check`). Ele avalia exclusivamente: **o que foi pedido está funcionando?**

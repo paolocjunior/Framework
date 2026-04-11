@@ -40,6 +40,16 @@ fi
 # --------------------------------------------------------------------------
 # 3. Extrair path do arquivo sendo editado
 # --------------------------------------------------------------------------
+# Dependencia critica: jq. Este hook e de bloqueio — se jq nao existe,
+# o parsing falha silenciosamente e o gate libera qualquer codigo-fonte.
+# Bloquear explicitamente para nao inverter o proposito do hook.
+if ! command -v jq &>/dev/null; then
+    echo "BLOQUEADO: jq nao encontrado no PATH." >&2
+    echo "Este gate nao pode verificar plan-approval sem jq." >&2
+    echo "Instalar jq antes de prosseguir: https://jqlang.github.io/jq/" >&2
+    exit 2
+fi
+
 FILE_PATH=$(jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null || echo "")
 
 if [ -z "$FILE_PATH" ]; then
@@ -51,9 +61,15 @@ fi
 #    (configs, docs, framework, specs, ledger, etc.)
 # --------------------------------------------------------------------------
 
+# Normalizar separadores de path: em Windows (Git Bash/Cygwin) o Claude Code
+# envia paths com backslash. Os globs abaixo esperam forward slash.
+# Nao mutamos o valor exibido em mensagens de erro — apenas criamos uma
+# variante normalizada para matching de padroes.
+FILE_PATH_NORM="${FILE_PATH//\\//}"
+
 # Sempre permitir edições dentro de .claude/ (framework, hooks, runtime)
-case "$FILE_PATH" in
-    *".claude/"*) exit 0 ;;
+case "$FILE_PATH_NORM" in
+    *"/.claude/"*|".claude/"*) exit 0 ;;
 esac
 
 # Permitir por extensão — configs, docs, infra

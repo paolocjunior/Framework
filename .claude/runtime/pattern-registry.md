@@ -1,9 +1,12 @@
 # Pattern Registry
 
-> **Regras de uso:**
-> - Padrões só entram aqui após aprovação explícita via `/justify` ou `/plan`
-> - Escrita: manual ou via command — nunca automática por hook
-> - Formato: tabela estruturada com ID, Categoria, Status, Decisão, Escopo, Revisitar Quando
+> **Contrato de escrita:**
+> - **Escrita é sempre manual pelo usuário.** Nenhum command, hook ou agent escreve neste arquivo automaticamente — apenas o usuário colando conteúdo.
+> - **Origem do conteúdo:** `/justify` apresenta blocos formatados prontos para inserção. O usuário lê o bloco e decide se cola aqui.
+> - **Por que manual:** garante controle total sobre o que vira padrão oficial, evita poluição automática por sugestões fracas, e funciona sem depender das ferramentas declaradas nos `allowed-tools` dos commands.
+>
+> **Regras de conteúdo:**
+> - Formato: blocos estruturados (ver template abaixo) com ID, Categoria, Status, Decisão, Escopo, Revisitar Quando
 > - Ciclo de vida: `draft` → `approved` → `deprecated` | `superseded`
 > - Leitura: `/status-check` exibe padrões com status `approved`
 >

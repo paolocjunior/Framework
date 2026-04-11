@@ -17,4 +17,26 @@ Formato de saída: lista clara e concisa, organizada por arquivo ou módulo.
 
 Se alguma decisão não tiver justificativa sólida, apontar como ponto de atenção.
 
-Se a decisão documentada for reutilizável em contextos futuros (ex: escolha de stack, padrão arquitetural, convenção de segurança, anti-pattern recorrente), sugerir ao usuário registrar como padrão em `.claude/runtime/pattern-registry.md` com formato estruturado (ID, Categoria, Status, Decisão, Alternativas Rejeitadas, Escopo, Aprovado Em, Revisitar Quando).
+## Pattern registry — geração de bloco para inserção manual
+
+Se a decisão documentada for reutilizável em contextos futuros (ex: escolha de stack, padrão arquitetural, convenção de segurança, anti-pattern recorrente), **apresentar ao usuário o bloco formatado pronto para inserção** em `.claude/runtime/pattern-registry.md`.
+
+Este command NÃO escreve no pattern-registry — suas ferramentas (`Read, Grep, Glob`) não permitem edição. A inserção é sempre manual pelo usuário: o command gera o bloco abaixo e o usuário decide se e quando colar no arquivo.
+
+Formato obrigatório do bloco gerado (um por decisão elegível):
+
+```markdown
+### [ID]  <!-- gerar próximo ID sequencial por categoria, ex: ARCH-01, SEC-03 -->
+
+- **Categoria:** [ex: Arquitetura, Segurança, Stack, Convenção]
+- **Status:** draft
+- **Decisão:** [o que foi escolhido, em 1 frase]
+- **Alternativas Rejeitadas:** [o que foi descartado e por quê, em 1-2 linhas]
+- **Escopo:** [onde se aplica — módulo, projeto inteiro, categoria de arquivos]
+- **Aprovado Em:** YYYY-MM-DD
+- **Revisitar Quando:** [condição concreta que invalida a decisão, ex: "migrar para X", "escala ultrapassar Y"]
+```
+
+Após apresentar o bloco, instruir o usuário: "Copie o bloco acima e cole em `.claude/runtime/pattern-registry.md` se quiser registrar este padrão."
+
+Se nenhuma decisão for reutilizável, não gerar bloco.

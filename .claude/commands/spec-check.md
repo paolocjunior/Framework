@@ -3,6 +3,17 @@ description: Verificação de prontidão da especificação — gate de qualidad
 allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(cat:*), Bash(wc:*)
 ---
 
+## Carregar contexto (obrigatório antes de qualquer outra ação)
+
+Aplicar o protocolo de `.claude/rules/context-loading.md` antes de auditar a spec:
+
+1. Ler `memory/project_spec-status.md` (snapshot) — se ausente, ler `runtime/execution-ledger.md`
+2. Verificar Open Items, bloqueios e fase atual do projeto
+3. Declarar no início do output: `Contexto carregado: [fase atual], [open items: N], [bloqueios: N]`
+4. Se snapshot e ledger divergirem, aplicar `state-sync.md` antes de prosseguir
+
+---
+
 Auditar a especificação do projeto/produto ANTES de qualquer plano de implementação, seguindo a checklist em `.claude/rules/spec-quality.md`.
 
 ## Objetivo

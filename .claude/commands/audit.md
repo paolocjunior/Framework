@@ -4,6 +4,17 @@ allowed-tools: Read, Grep, Glob, Bash(find:*), Bash(grep:*), Bash(npm:*), Bash(n
 context: fork
 ---
 
+## Carregar contexto (obrigatório antes de qualquer outra ação)
+
+Aplicar o protocolo de `.claude/rules/context-loading.md` antes de iniciar a auditoria:
+
+1. Ler `memory/project_spec-status.md` (snapshot) — se ausente, ler `runtime/execution-ledger.md`
+2. Verificar fase atual, Open Items e bloqueios — auditoria deve considerar estado acumulado e findings anteriores
+3. Declarar no início do output: `Contexto carregado: [fase atual], [open items: N], [bloqueios: N]`
+4. Se snapshot e ledger divergirem, aplicar `state-sync.md` antes de prosseguir
+
+---
+
 Realizar auditoria completa do código do projeto seguindo as checklists em:
 - `.claude/rules/security.md`
 - `.claude/rules/web-api-security.md` — incluindo seções de Race Conditions, Lógica de Negócio e Anti-fraude, URLs e Recursos Armazenados, e Validação de Tamanho de Input

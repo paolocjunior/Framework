@@ -2,7 +2,6 @@
 set -euo pipefail
 
 # security-check.sh — Detecção de secrets hardcoded e código inseguro
-# OBRIGATÓRIO: roda sempre, em qualquer perfil. NÃO usa profile-guard.
 # Roda após Edit/Write/MultiEdit — reporta via JSON systemMessage
 
 FILE_PATH=$(jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null || echo "")
