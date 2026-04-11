@@ -185,6 +185,25 @@ Tabela:
 | AC1 | Usuário abre app e vê tela de login | AUTH-01 | manual_test | MANUAL_CHECK |
 | AC3 | TypeScript compila sem erros | — | sensor(type-check) | PASS |
 
+### Passo 7.5 — Coletar sprints da fase (informativo)
+
+Sprints são sub-granularidade opcional da fase (ver `.claude/rules/sprint-contracts.md`). Este passo é **puramente informativo** — sprints **não** afetam o veredicto R1-R10 do contract-check. O phase contract continua sendo a autoridade sobre compromisso da fase; sprints adicionam visibilidade sobre progresso atômico intra-fase.
+
+1. Verificar se o diretório `.claude/runtime/contracts/sprints/<parent_phase_id>/` existe:
+   - Se não existe → nenhum sprint declarado. Pular este passo sem aviso.
+   - Se existe → listar todos os arquivos `.json` dentro (cada um é um sprint contract)
+2. Para cada sprint encontrado, ler e extrair:
+   - `sprint_id`, `title`, `status`, `created_at`, `closed_at`
+   - Tamanho de `evaluation_history` (quantas execuções de `/sprint-evaluate`)
+   - Último verdict em `evaluation_history` (se houver) — `pass | fail | partial | unknown`
+   - `verdict` final (se fechado): `passed | failed | deferred | null`
+3. Verificar se algum sprint aparece como ativo em `.claude/runtime/contracts/active-sprint.json`:
+   - Se `active_sprint_id` bate com um dos sprints listados → marcar como `active`
+   - Se `active_sprint_id` é null → nenhum sprint está ativo no momento
+4. **Não modificar** nada — apenas coletar dados para o relatório
+
+O objetivo é dar visibilidade ao humano: "a fase tem N sprints, X fechados como passed, Y como failed, Z em andamento" — sem afetar o veredicto do phase contract.
+
 ### Passo 8 — Agregar veredicto
 
 Aplicar a tabela de agregação **determinística** abaixo. A ordem das regras importa — a primeira regra que casa decide o veredicto.
@@ -261,6 +280,21 @@ Resumo: X required PASS / Y required FAIL / Z opcionais MISSING
 ## Out of scope (declarado no contrato)
 
 - [lista de itens explicitamente fora do escopo da fase]
+
+## Sprints da fase (informativo, não afeta veredicto)
+
+(Esta seção só aparece se existir `.claude/runtime/contracts/sprints/<parent_phase_id>/` com pelo menos 1 sprint declarado)
+
+- **Total de sprints:** N (X passed, Y failed, Z deferred, W em andamento, V em draft)
+- **Sprint ativo:** `[sprint_id]` (ou "(nenhum)" se `active-sprint.json` é null)
+
+| Sprint ID | Título | Status | Último verdict mecânico | Eval runs | Closed at |
+|-----------|--------|--------|------------------------|-----------|-----------|
+| sprint-01-... | ... | passed | pass | 3 | 2026-04-10T... |
+| sprint-02-... | ... | in_progress | partial | 2 | — |
+| sprint-03-... | ... | draft | — | 0 | — |
+
+**Observação:** o veredicto do phase contract acima é calculado exclusivamente contra os `deliverables`, `sensors_required`, `acceptance_criteria` e `preconditions` do phase contract. Sprints são sub-granularidade operacional e não afetam o veredicto — mesmo se um sprint estiver em `failed`, o phase contract pode continuar `ON_TRACK` se os deliverables da fase estiverem no caminho.
 
 ## Aviso de staleness (se aplicável)
 

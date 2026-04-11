@@ -117,6 +117,62 @@ Staleness por si só não bloqueia `PRONTO`, mas aparece como observação no ou
 
 ---
 
+## Bloco 0.6 — Sprints da fase (informativo, não-bloqueante)
+
+Após consumir o veredicto do contrato ativo (Bloco 0.5), o ship-check **coleta o estado dos sprints contracts da fase corrente — estritamente para visibilidade**. Sprints são granularidade intra-fase opcional (ver `.claude/rules/execution-contracts.md`, seção "Sprint contracts"); eles não mutam o phase contract e não participam da decisão de veredicto do ship-check.
+
+**Princípio:** o phase contract (Bloco 0.5) é autoridade única sobre o compromisso da fase. Sprints são sub-unidades de feedback curto dentro da fase; seu estado aparece no output apenas para contexto operacional.
+
+### Passo 0.6.1 — Verificar existência do diretório de sprints
+
+A partir do `parent_phase_id` lido do contrato ativo (ou do `active_phase_id` de `active.json` quando o contrato não existe), procurar `.claude/runtime/contracts/sprints/<parent_phase_id>/`:
+
+- **Diretório ausente ou vazio** → a fase não usa sprint contracts. Registrar no output como "Sprints: não declarados para esta fase". Não é débito técnico, não é recomendação — é operação normal. Seguir para Bloco A.
+- **Diretório presente com 1+ sprint contracts** → seguir para Passo 0.6.2.
+
+### Passo 0.6.2 — Coletar dados dos sprints
+
+Para cada arquivo `<sprint_id>.json` no diretório:
+
+1. Validar schema via `jq empty`. Arquivos inválidos aparecem no output como `INVALID` mas não bloqueiam nada.
+2. Extrair campos informativos:
+   - `sprint_id`
+   - `title`
+   - `status` (`draft | approved | in_progress | passed | failed | deferred`)
+   - `created_at`
+   - `closed_at` (se existe)
+   - `evaluation_history` → contagem de entradas e último verdict mecânico (`pass | fail | partial` ou "nenhum" se vazio)
+   - `verdict` (se existe — preenchido por `/sprint-close`)
+   - `verdict_reason` (se existe)
+
+### Passo 0.6.3 — Identificar sprint ativo
+
+Ler `.claude/runtime/contracts/active-sprint.json`:
+
+- `active_sprint_id` é `null` ou arquivo ausente → nenhum sprint ativo no momento
+- `active_sprint_id` preenchido → registrar qual sprint é o corrente. Validar que o `active_parent_phase_id` bate com a fase sendo avaliada; se divergir, reportar como inconsistência (informativa, não bloqueante).
+
+### Passo 0.6.4 — Agregar contagens
+
+Agrupar sprints por status final:
+- `passed` — fechados com sucesso
+- `failed` — fechados como falha
+- `deferred` — adiados
+- `in_progress` — em andamento
+- `approved` — aprovados mas ainda não iniciados
+- `draft` — rascunhos
+
+Nenhuma regra de agregação vira veredicto. Não existe "sprint fail bloqueia ship-check" — o phase contract é que decide.
+
+### Passo 0.6.5 — Regra de read-only absoluto
+
+Este bloco **nunca modifica** nada:
+- Não edita sprints contracts
+- Não edita `active-sprint.json`
+- Não edita o phase contract
+- Não invoca `/sprint-evaluate` nem `/sprint-close`
+- Não escreve no ledger (a atualização do ledger no final do ship-check é responsabilidade da seção "Atualização do Ledger" e pode citar sprints, mas o Bloco 0.6 em si é read-only)
+
 ---
 
 ## Bloco A — Release Viability
@@ -239,7 +295,36 @@ Se o projeto não declara contrato ativo, substituir por:
 - Registrado como débito contratual no ledger
 ```
 
-Depois dos Blocos 0 e 0.5, para cada item dos Blocos A e B, reportar:
+Depois do contrato, incluir o sumário dos sprints da fase (Bloco 0.6). **Este bloco é estritamente informativo** — não afeta o veredicto do ship-check.
+
+```markdown
+## Sprints da Fase (Bloco 0.6 — informativo)
+
+- Parent phase: `[parent_phase_id]`
+- Total de sprints: N (passed: X | failed: Y | deferred: Z | in_progress: W | approved: V | draft: U)
+- Sprint ativo agora: `[sprint_id]` ou "(nenhum)"
+- Diretório: `.claude/runtime/contracts/sprints/[parent_phase_id]/`
+
+| Sprint ID | Título | Status | Último verdict mecânico | Eval runs | Closed at |
+|-----------|--------|--------|-------------------------|-----------|-----------|
+| `sprint-01-foo` | Foo base | passed | pass | 3 | 2026-04-10T... |
+| `sprint-02-bar` | Bar flow | in_progress | partial | 2 | — |
+| `sprint-03-baz` | Baz polish | draft | (nenhum) | 0 | — |
+
+> **Observação:** sprints não afetam o veredicto do ship-check. O phase contract (Bloco 0.5) é a autoridade sobre o compromisso da fase. Sprints aparecem aqui apenas para visibilidade operacional — um sprint em `failed` ou `in_progress` pode coexistir com fase pronta para entrega se o phase contract já alcançou `READY_TO_CLOSE`.
+```
+
+Se a fase não declara sprints, substituir por:
+
+```markdown
+## Sprints da Fase (Bloco 0.6 — informativo)
+
+- Sprints: não declarados para esta fase
+- Diretório `.claude/runtime/contracts/sprints/[parent_phase_id]/` ausente ou vazio
+- Sprints são granularidade intra-fase opcional. A ausência é operação normal, não é débito técnico.
+```
+
+Depois dos Blocos 0, 0.5 e 0.6, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|

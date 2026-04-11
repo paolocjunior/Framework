@@ -1,6 +1,6 @@
-# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts
+# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts
 
-Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre comportamento, não narrativa do agente) e **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável).
+Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre comportamento, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável) e **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback).
 
 ## Estrutura
 
@@ -10,7 +10,7 @@ projeto/
 ├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
 └── .claude/
     ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 26 checklists de qualidade
+    ├── rules/                         # 27 checklists de qualidade
     │   ├── agent-contracts.md         # Protocolo de invocação e parsing de agents
     │   ├── code-review.md             # Critérios de revisão
     │   ├── context-loading.md         # Carregamento de contexto no início de commands
@@ -32,12 +32,13 @@ projeto/
     │   ├── sensors.md                 # Protocolo de sensores mecânicos (exit code como verdade)
     │   ├── spec-creation-guide.md     # Guia de criação de especificação
     │   ├── spec-quality.md            # Prontidão de especificação
+    │   ├── sprint-contracts.md        # Protocolo de sprint contracts (granularidade intra-fase)
     │   ├── state-management.md        # Gestão de estado
     │   ├── state-sync.md              # Protocolo do trio de sincronização
     │   ├── structural-quality.md      # Qualidade estrutural
     │   ├── testing.md                 # Padrões de testes
     │   └── web-api-security.md        # Segurança web e API
-    ├── commands/                       # 20 slash commands
+    ├── commands/                       # 23 slash commands
     ├── agents/                         # 8 subagents (6 especializados + 2 transversais)
     ├── hooks/                          # 11 scripts de validação automática
     └── runtime/
@@ -51,7 +52,11 @@ projeto/
         ├── contracts.template.json    # Template de contrato de execução por fase
         ├── contracts/                 # Contratos estruturados por fase
         │   ├── active.json            # Ponteiro para contrato da fase ativa
-        │   └── phase-<id>.json        # Um arquivo por fase (criado por /contract-create)
+        │   ├── active-sprint.json     # Ponteiro para sprint contract ativo
+        │   ├── phase-<id>.json        # Um arquivo por fase (criado por /contract-create)
+        │   └── sprints/               # Sprint contracts (granularidade intra-fase)
+        │       └── <parent_phase_id>/ # Um diretório por fase; vínculo é filesystem-based
+        │           └── <sprint_id>.json # Um arquivo por sprint (criado por /sprint-create)
         ├── baseline-feedbacks/        # Templates de feedbacks comportamentais
         └── session-summaries/         # Resumos de sessão (gerados automaticamente)
 ```
@@ -86,7 +91,7 @@ No Claude Code do projeto:
 
 | Camada | Mecanismo | Proteção |
 |--------|-----------|----------|
-| 1 — Regras | CLAUDE.md + 25 rules | Direção e padrões |
+| 1 — Regras | CLAUDE.md + 27 rules | Direção e padrões |
 | 2 — Hooks | 11 scripts automáticos | Erros objetivos (secrets, syntax, gate de implementação) |
 | 3 — Memória | Feedbacks comportamentais | Erros de julgamento |
 | 4 — Cross-model | Codex adversarial review | Blind spots da IA principal |
@@ -139,6 +144,9 @@ Princípio: **se o comando retorna 0, o sensor passou — nenhum agente pode rei
 | `/sensors-run` | Executar sensores mecânicos e produzir veredicto por exit code |
 | `/contract-create` | Criar contrato estruturado de execução a partir do plano aprovado |
 | `/contract-check` | Verificar estado do projeto contra contrato ativo (read-only, veredicto R1-R10) |
+| `/sprint-create` | Criar sprint contract (granularidade intra-fase) com evaluator declarativo |
+| `/sprint-evaluate` | Executar evaluator do sprint ativo e registrar verdict append-only em `evaluation_history` |
+| `/sprint-close` | Fechar sprint com transição human-confirmed para `passed \| failed \| deferred` |
 
 ## Subagents
 
@@ -201,5 +209,21 @@ O contrato é a declaração upstream do que a fase promete. O plano continua se
   - `/verify-spec` — novo **Passo 4.5** cruza deliverables do contrato com entregas da spec. Entrega mapeada a deliverable `required` com status `MISSING`/`FAIL` é **rebaixada** — o contrato é autoridade sobre compromisso da fase
 
 **Princípio:** contrato (O QUE), plano (COMO), ledger (O QUE ACONTECEU) e sensores (SE ESTÁ FUNCIONANDO) são artefatos complementares sem sobreposição. Opt-in pattern mesmo dos sensores: projetos sem `contracts/` declarados operam em modo degradado (NO_CONTRACT como lacuna, não bloqueio).
+
+## Pós-V4 — Sprint Contracts (granularidade intra-fase)
+
+Quarto item da fila de prioridades derivada da análise de Harness Engineering. Enquanto o phase contract declara o compromisso da fase em escala de dias/semanas, o sprint contract declara entregas atômicas em escala de horas, com bateria de checks determinística que produz verdict `pass | fail | partial` a cada execução. Fecha o ciclo curto de feedback dentro de uma fase longa.
+
+- **1 rule nova**: `sprint-contracts.md` — schema completo do sprint contract, lifecycle (`draft → approved → in_progress → passed/failed/deferred`), 4 tipos de check (`file_exists`, `grep_pattern`, `sensor_subset`, `custom_command`), hardening obrigatório de `custom_command`, regras de agregação `all | threshold`
+- **3 commands novos**:
+  - `/sprint-create` — cria sprint contract a partir de conversa com o usuário; exige segunda confirmação para transicionar `draft → approved`
+  - `/sprint-evaluate` — executa evaluator do sprint ativo e registra verdict **append-only** em `evaluation_history`. Não transiciona status (transição é sempre humana via `/sprint-close`)
+  - `/sprint-close` — único command que fecha sprint. Exige confirmação humana explícita; `verdict_reason` obrigatório para `failed` e `deferred`
+- **2 artefatos novos em runtime**: `contracts/sprints/<parent_phase_id>/<sprint_id>.json` (um por sprint) e `contracts/active-sprint.json` (ponteiro independente do phase pointer)
+- **2 commands modificados** (integração **informativa, não bloqueante**):
+  - `/contract-check` — novo passo informativo lista sprints da fase no output (contagem por status, último verdict mecânico). Sprints não afetam o veredicto R1-R10 do contract-check
+  - `/ship-check` — novo **Bloco 0.6** lista sprints da fase ativa. Sprints são visibilidade operacional, não gate — o phase contract (Bloco 0.5) permanece autoridade sobre compromisso da fase
+
+**Princípio:** phase contract é imutável. O vínculo fase → sprints é **derivado do filesystem** (`contracts/sprints/<parent_phase_id>/`), não registrado no phase contract. Sprints são opt-in: projetos que preferem operar apenas com phase contracts ignoram a camada. Quando usados, sprint contract fechado é imutável — reabertura exige criar sprint novo (`sprint-01b-v2`), nunca editar o fechado. `evaluation_history` é append-only por design.
 
 Para o changelog completo, ver seção `## Changelog` no `CLAUDE.md`.

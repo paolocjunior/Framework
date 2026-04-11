@@ -1,0 +1,7 @@
+{
+  "_comment": "Ponteiro para o sprint contract ativo. Apenas um sprint por vez pode estar ativo. Atualizado por /sprint-create ao aprovar (transicao draft -> approved) e resetado por /sprint-close ao fechar (passed/failed/deferred). Se active_sprint_id for null, nenhum sprint esta ativo. Ver .claude/rules/sprint-contracts.md.",
+  "active_sprint_id": null,
+  "active_parent_phase_id": null,
+  "active_sprint_path": null,
+  "last_updated": null
+}

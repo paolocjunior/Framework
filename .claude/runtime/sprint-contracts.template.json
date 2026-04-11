@@ -1,0 +1,84 @@
+{
+  "_comment_header": "Template de sprint contract (granularidade intra-fase). Copiar para .claude/runtime/contracts/sprints/<parent_phase_id>/<sprint_id>.json e preencher conforme o sprint real. Ver .claude/rules/sprint-contracts.md para o contrato completo. Campos iniciados com '_comment' sao ignorados pelo parser (convencao jsonc-like).",
+  "schema_version": "1",
+  "sprint_id": "sprint-01-loginscreen-base",
+  "_comment_parent_phase_id": "Deve bater exatamente com um phase contract existente em status 'approved' ou 'in_progress'. Sprint orfao (sem fase ativa) e invalido.",
+  "parent_phase_id": "phase-01-ui-shell",
+  "title": "Sprint 1 — LoginScreen base com campos e tokens de design",
+  "goal": "Entregar a tela de login com campos de email/senha usando tokens do design system, sem logica de submit. Unidade atomica: UI estatica validavel em 1-2h.",
+  "status": "draft",
+  "created_at": "2025-01-01T00:00:00Z",
+  "approved_at": null,
+  "started_at": null,
+  "closed_at": null,
+  "estimated_duration": "1-2h",
+  "_comment_deliverables": "Entregas concretas do sprint. Cada deliverable descreve o que deve existir no path. Devem ser poucos (1-3) — se passar de 3, provavelmente o sprint e grande demais e deveria ser dois sprints.",
+  "deliverables": [
+    {
+      "id": "D1",
+      "location": "src/screens/LoginScreen.tsx",
+      "description": "Componente LoginScreen renderizando email, senha e botao de submit (sem handler real)"
+    },
+    {
+      "id": "D2",
+      "location": "src/screens/__tests__/LoginScreen.test.tsx",
+      "description": "Teste unitario cobrindo renderizacao inicial e presenca dos campos obrigatorios"
+    }
+  ],
+  "_comment_evaluator": "Bateria de checks atomicos que produz verdict pass/fail mecanico. 4 tipos suportados: file_exists, grep_pattern, sensor_subset, custom_command. Cada check tem 'required' (bloqueante) ou nao-required (log only). Verdict final agrega conforme 'mode'.",
+  "evaluator": {
+    "_comment_mode": "Modos: 'all' (default, todos os required devem passar) ou 'threshold' (pelo menos N checks de qualquer tipo devem passar). Threshold exige justificativa explicita na goal ou verdict_reason.",
+    "mode": "all",
+    "threshold": 0,
+    "checks": [
+      {
+        "id": "C1",
+        "type": "file_exists",
+        "description": "LoginScreen.tsx existe no path correto",
+        "required": true,
+        "target": "src/screens/LoginScreen.tsx"
+      },
+      {
+        "id": "C2",
+        "type": "grep_pattern",
+        "description": "LoginScreen importa tokens de design (prova de que nao ha hex hardcoded)",
+        "required": true,
+        "target": "src/screens/LoginScreen.tsx",
+        "pattern": "from ['\"]@/theme/tokens['\"]",
+        "min_matches": 1
+      },
+      {
+        "id": "C3",
+        "type": "grep_pattern",
+        "description": "LoginScreen renderiza TextInput de email e senha",
+        "required": true,
+        "target": "src/screens/LoginScreen.tsx",
+        "pattern": "<TextInput",
+        "min_matches": 2
+      },
+      {
+        "id": "C4",
+        "type": "sensor_subset",
+        "description": "Type-check e lint passam no ultimo run de sensores",
+        "required": true,
+        "sensor_ids": ["type-check", "lint"]
+      },
+      {
+        "_comment_C5": "custom_command exige timeout_seconds obrigatorio. Read-only por contrato. Sem rede por default. Max sugerido: 120s. Ver rule sprint-contracts.md secao 'Hardening de custom_command'.",
+        "id": "C5",
+        "type": "custom_command",
+        "description": "Teste unitario do LoginScreen passa isoladamente",
+        "required": true,
+        "command": "npx jest src/screens/__tests__/LoginScreen.test.tsx --silent",
+        "timeout_seconds": 60,
+        "requires_network": false,
+        "working_dir": "."
+      }
+    ]
+  },
+  "_comment_evaluation_history": "Append-only. Cada execucao de /sprint-evaluate adiciona uma entrada — nunca substitui. Rodar 10 vezes = 10 entradas. Verdict do sprint contract e preenchido apenas em /sprint-close, nao em /sprint-evaluate.",
+  "evaluation_history": [],
+  "_comment_verdict": "Preenchido ao fechar o sprint via /sprint-close. null enquanto draft/approved/in_progress. Valores: passed | failed | deferred. verdict_reason obrigatorio quando verdict != passed.",
+  "verdict": null,
+  "verdict_reason": null
+}
