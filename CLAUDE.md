@@ -1,7 +1,9 @@
 # CLAUDE.md — Global Quality Framework V4
 
-> **Versão V4 — Expansão de agents transversais e protocolos de invocação.**
-> Adiciona 3 rules novas (context-loading, review-quality, agent-contracts), 2 agents novos (risk-assessment transversal, qa-auditor especializado), taxonomia formal de agents, política de model com override sonnet/opus, self-check interno de review e protocolo padronizado de contratos. Mudanças puramente aditivas — nada da V3 foi removido ou quebrado. Para o histórico completo de mudanças, ver `## Changelog` ao final.
+> **Versão V4 + Camada de Sensores Mecânicos.**
+> V4 adicionou 3 rules (context-loading, review-quality, agent-contracts), 2 agents novos (risk-assessment transversal, qa-auditor especializado), taxonomia formal de agents, política de model com override sonnet/opus, self-check interno de review e protocolo padronizado de contratos.
+> Pós-V4 adiciona a camada de sensores mecânicos: 1 rule (`sensors.md`), 1 command (`/sensors-run`), artefatos de runtime (`sensors.json` + `sensors-last-run.json`) e integração autoritativa com `/ship-check` e `/verify-spec` — fechando a lacuna "o agente narra, o ambiente não confirma" apontada pela análise de Harness Engineering.
+> Mudanças puramente aditivas — nada da V3/V4 foi removido ou quebrado. Para o histórico completo, ver `## Changelog` ao final.
 
 ## Princípios
 
@@ -93,6 +95,8 @@ Regras:
 | `runtime/pattern-registry.md` | Catálogo de padrões aprovados | Manual ou via /justify | Dentro do projeto (Git) |
 | `runtime/spec-template.md` | Template de estrutura de especificação | Referência para /spec-create | Dentro do projeto (Git) |
 | `runtime/session-summaries/latest.md` | Resumo da última sessão | Hook session-summary.sh (automático) | Dentro do projeto (Git) |
+| `runtime/sensors.json` | Declaração de sensores mecânicos do projeto (test/lint/build/audit) | Manual, copiado de `sensors.template.json` | Dentro do projeto (Git) |
+| `runtime/sensors-last-run.json` | Veredicto estruturado da última execução dos sensores | `/sensors-run` (automático) | Dentro do projeto (efêmero, pode ficar fora do Git) |
 | `memory/project_spec-status.md` | Snapshot resumido do estado atual | Commands (junto com ledger) | Fora do projeto (memória Claude Code) |
 
 O ledger e o snapshot formam um **trio de sincronização** com o `MEMORY.md` do sistema de memória. Quando o estado do projeto muda, os 3 devem ser atualizados juntos. Ver `.claude/rules/state-sync.md` para o protocolo completo e `.claude/runtime/project-status.template.md` para o formato do snapshot.
@@ -114,6 +118,34 @@ O framework opera em 4 camadas complementares de defesa. Nenhuma substitui as ou
 - **Camada 4** requer setup do Codex CLI + plugin (ver seção Cross-Model Review)
 
 A camada 3 começa vazia em projetos novos. Templates de referência estão disponíveis em `.claude/runtime/baseline-feedbacks/` para acelerar a construção dessa camada. O framework inclui esses templates como referência — feedbacks orgânicos (nascidos de incidentes reais) tendem a ser mais efetivos que feedbacks pré-carregados.
+
+### Camada de Sensores Mecânicos
+
+Sensores são verificações declarativas executadas pelo ambiente, cujo veredicto vem do **exit code de um comando** — não da narrativa do agente. A camada de sensores resolve uma lacuna estrutural: até hoje, o agente podia "dizer que validou" sem que o ambiente confirmasse. Com sensores, o ambiente é quem diz.
+
+| Aspecto | Hooks | Sensores |
+|---|---|---|
+| Quando rodam | Automaticamente em evento (edit, write, session-start) | Sob demanda (via `/sensors-run` ou dentro de commands consumidores) |
+| Declaração | `settings.json` (universal, parte do framework) | `sensors.json` (por projeto, versionado com o código) |
+| Custo típico | Baixíssimo (<1s por hook) | Médio a alto (testes E2E podem levar minutos) |
+| Escopo | Arquivo ou sessão | Codebase inteira ou subset declarado |
+| O que detectam | Padrões estáticos, violações sintáticas, secrets, loops | Correção funcional, tipos, build, vulnerabilidades, comportamento |
+
+**Princípio central:** Se o comando de um sensor retorna 0, o sensor passou. Se retorna qualquer outro valor, falhou. Nenhum agente pode reinterpretar o output textual como sucesso quando o exit code diz o contrário.
+
+**Arquivos envolvidos:**
+- `.claude/runtime/sensors.json` — declaração dos sensores do projeto (versionado no Git)
+- `.claude/runtime/sensors.template.json` — template inicial com exemplos de 6 tipos de sensor
+- `.claude/runtime/sensors-last-run.json` — veredicto estruturado da última execução (efêmero)
+
+**Commands consumidores:**
+- `/sensors-run` — executa os sensores declarados e produz `sensors-last-run.json`
+- `/ship-check` — lê `sensors-last-run.json` no Bloco 0 como gate prévio ao Bloco A; `blocking_failures > 0` força `NÃO PRONTO`
+- `/verify-spec` — usa sensores como evidência mecânica de comportamento; cenário marcado IMPLEMENTADO com sensor de teste `fail` é rebaixado automaticamente
+
+**Bootstrap:** em projeto novo, copiar `.claude/runtime/sensors.template.json` para `.claude/runtime/sensors.json`, editar para refletir a stack real e rodar `/sensors-run` para estabelecer baseline. Projetos que não declaram `sensors.json` operam em modo degradado (sem sensores) — os commands consumidores reportam a ausência como lacuna explícita, sem bloquear automaticamente.
+
+Ver `.claude/rules/sensors.md` para o contrato completo (schema, tipos, regras de staleness, verdict aggregation).
 
 ### Cross-Model Review (Camada 4)
 
@@ -253,6 +285,7 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `.claude/rules/context-loading.md` — protocolo de carregamento de contexto no início de commands de review e análise
 - `.claude/rules/review-quality.md` — critérios de qualidade de outputs de review (self-check interno obrigatório)
 - `.claude/rules/agent-contracts.md` — protocolo de invocação e parsing de agents (formato de input, output, modos de falha)
+- `.claude/rules/sensors.md` — protocolo de sensores mecânicos (exit code é autoridade, não narrativa do agente)
 
 ## Slash Commands
 
@@ -273,6 +306,7 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `/status-check` — verificar estado atual do projeto, fases pendentes e bloqueios
 - `/memory-consolidate` — consolidar memória do projeto (reorganizar ledger, merge feedbacks)
 - `/skills-gap` — identificar lacunas de cobertura e sugerir skills externas complementares
+- `/sensors-run` — executar sensores mecânicos declarados em `sensors.json` e produzir veredicto estruturado por exit code
 
 ## Subagents
 
@@ -319,6 +353,34 @@ O command invocador pode sobrescrever o model via parâmetro `model` da Agent to
 2. Se a tarefa é estrutural (presença, contagem, classificação por regras determinísticas) → `sonnet` default com override condicional para `opus` quando a criticidade do contexto justificar
 
 ## Changelog
+
+### Pós-V4 — Camada de Sensores Mecânicos
+
+Resposta direta à análise de Harness Engineering (Fowler + Anthropic + OpenAI) que identificou a lacuna central do framework até V4: **o agente narra "validado", mas o ambiente não confirma**. Com sensores, o ambiente é quem diz.
+
+**Rules novas (1):**
+- `.claude/rules/sensors.md` — contrato completo de sensores mecânicos. Princípios (exit code como verdade, declarativo, estruturado), schema de `sensors.json` e `sensors-last-run.json`, tipos de sensor (test/lint/type-check/build/security-scan/custom), regras de agregação de veredicto (PASS/FAIL/PARTIAL/NO_SENSORS), staleness, vedações, relação com hooks, bootstrap
+
+**Commands novos (1):**
+- `.claude/commands/sensors-run.md` — executa sensores declarados sequencialmente, captura exit code, persiste veredicto estruturado em `sensors-last-run.json`, atualiza ledger. Suporta flags `--offline`, `--no-db`, `--only <id>`, `--skip <id>`
+
+**Artefatos novos de runtime (2):**
+- `.claude/runtime/sensors.template.json` — template de bootstrap com 6 exemplos de sensor (unit-tests, lint, type-check, build, deps-audit, custom-structure-check)
+- `.claude/runtime/sensors-last-run.json` — veredicto estruturado da última execução (efêmero; pode ficar fora do Git)
+
+**Commands modificados (2):**
+- `ship-check.md` — adicionado **Bloco 0 — Sensores mecânicos (gate prévio ao Bloco A)**. Consome `sensors-last-run.json`, mapeia sensores para itens do Bloco A (test→A2, lint/type→A3, build→A1, security-scan→A5), e **`blocking_failures > 0` força veredicto `NÃO PRONTO` incondicionalmente** — mesmo com risk-assessment LOW_RISK e tudo mais OK. Formato de saída atualizado para exigir citação explícita do sensor id na coluna de evidência
+- `verify-spec.md` — reescrito **Passo 4 — Verificações dinâmicas**. Antes executava comandos ad-hoc; agora consome `sensors-last-run.json` como fonte autoritativa de comportamento mecânico. Cenário marcado como `IMPLEMENTADO` por análise estática é **rebaixado** automaticamente se o sensor de teste que cobre o fluxo está em `status: fail`. Regra explícita: "o agente não pode contradizer o ambiente"
+
+**Hook corrigido (1):**
+- `hooks/loop-detection.sh` — fix da contradição crítica entre promessa semântica e comportamento real. Variáveis (`BLOCK_THRESHOLD`), comentários ("5ª edição: bloqueio") e mensagem ("[LOOP BLOCK] PARAR imediatamente") prometiam bloquear a 5ª edição de um mesmo arquivo, mas o hook apenas imprimia `systemMessage` — que é informativo, não bloqueante. Agora emite `{decision: "block", reason: ...}` via stdout JSON na 5ª edição (contrato canônico de PostToolUse para bloquear continuação do modelo), preservando semântica one-shot via `-eq` (não `-ge`) e mantendo advertência persistente nas edições subsequentes. Também adicionado guard de dependência `command -v jq`
+
+**Mudanças conceituais:**
+- Sensores e hooks são camadas ortogonais e complementares. Hooks rodam em evento (universais, baixo custo, detectam padrões estáticos). Sensores rodam sob demanda (declarativos por projeto, médio a alto custo, detectam correção funcional)
+- Projetos sem `sensors.json` operam em modo degradado: commands consumidores reportam a ausência como lacuna explícita mas não bloqueiam. A declaração de sensores é responsabilidade do projeto, não inferida pelo framework a partir da stack
+- Princípio de autoridade do ambiente: **se o comando retorna 0, o sensor passou. Se retorna qualquer outro valor, falhou.** Nenhum agente pode reinterpretar o output textual como sucesso quando o exit code diz o contrário
+
+**Regra de auto-modificação do framework:** trabalho sobre o próprio framework (corrigir hook, criar rule, modificar command) **não aplica** o workflow padrão (`/plan-review`, Codex review, marker `.plan-approved`). O ciclo `/plan` → aprovação direta do usuário → implementação é suficiente. O workflow padrão é para projetos que **usam** o framework, não para o framework em si.
 
 ### V4 — Expansão de agents transversais e protocolos de invocação
 

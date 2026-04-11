@@ -20,7 +20,56 @@ Realizar verificação pré-entrega do projeto, avaliando se está pronto para d
 
 Os comandos e ferramentas de verificação devem ser adaptados à stack do projeto (ex.: npm/yarn/pnpm/bun, pip/pytest, cargo, gradle/gradlew, xcodebuild/swift, dotnet, cmake/make, go, unity/godot export pipeline). Os itens da checklist são universais; os comandos específicos variam por tecnologia.
 
-A verificação é dividida em dois blocos com semânticas distintas:
+A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido pela camada de sensores mecânicos** (`.claude/rules/sensors.md`), que substitui a execução ad-hoc de `npm test`, `tsc`, `npm run build` etc. por resultados estruturados vindos de exit code.
+
+---
+
+## Bloco 0 — Sensores mecânicos (gate prévio ao Bloco A)
+
+Antes de avaliar qualquer item do Bloco A, este command **deve consumir o veredicto estruturado de sensores mecânicos**. A camada de sensores é autoritativa sobre build, testes, lint, type-check e audit de dependências — quando existe.
+
+### Passo 0.1 — Verificar existência de `sensors.json`
+
+Ler `.claude/runtime/sensors.json`:
+
+- **Ausente** → projeto não declara sensores. Registrar como **lacuna explícita** no output (recomendação: "Copiar `sensors.template.json` para `sensors.json` e declarar sensores da stack"). O Bloco A roda no modo ad-hoc tradicional (execução direta de comandos pelo agente), mas o veredicto final do ship-check inclui a lacuna como débito técnico. Não bloqueia veredicto `PRONTO`, mas deve aparecer no output.
+- **Presente** → seguir para Passo 0.2.
+
+### Passo 0.2 — Verificar frescor de `sensors-last-run.json`
+
+Ler `.claude/runtime/sensors-last-run.json`:
+
+- **Ausente** → nunca foi executado. Invocar `/sensors-run` antes de prosseguir.
+- **Presente** mas stale (ver regras de staleness em `sensors.md`: `sensors.json` modificado após a última run, ou código-fonte modificado após `finished_at`, ou `finished_at > 24h atrás`) → invocar `/sensors-run` para atualizar.
+- **Presente e fresco** → consumir diretamente.
+
+### Passo 0.3 — Aplicar veredicto de sensores ao Bloco A
+
+Mapear o `verdict` do `sensors-last-run.json` para itens do Bloco A:
+
+| Sensor `type` | Item do Bloco A coberto |
+|---|---|
+| `test` | A2 (Testes) |
+| `lint` | A3 (parte — lint) |
+| `type-check` | A3 (parte — types) |
+| `build` | A1 (Build) |
+| `security-scan` | A5 (parte — audit de dependências) |
+
+Para cada item do Bloco A coberto por sensor, o status vem diretamente do sensor:
+- Sensor `pass` → item `PASS` com evidência `sensors-last-run.json:<sensor_id>` e exit_code 0
+- Sensor `fail` com `on_fail: block` → item `FAIL` bloqueante
+- Sensor `fail` com `on_fail: warn` → item `FAIL` não-bloqueante
+- Sensor `timeout` ou `error` → item `NÃO VERIFICADO` com razão
+
+Itens do Bloco A NÃO cobertos por sensor (A4 Configuração, A6 Secrets, parte de A5 que não é audit) continuam sendo verificados pelo agente na forma tradicional.
+
+### Passo 0.4 — Veredicto de sensores bloqueante
+
+Se `sensors-last-run.json` reporta `blocking_failures > 0`, o ship-check **NÃO pode reportar PRONTO**, independente de qualquer outro sinal. Rebaixar imediatamente para `NÃO PRONTO` e listar os sensores que falharam como bloqueadores.
+
+Razão: o princípio de sensores é que o ambiente é autoritativo. Se o agente concluísse PRONTO contra o sensor dizendo FAIL, o framework estaria voltando ao modelo self-evaluation que sensores existem para eliminar.
+
+---
 
 ---
 
@@ -95,11 +144,36 @@ Verifica se o projeto **está preparado para operar em produção com risco cont
 
 ## Formato de Saída
 
-Para cada item de cada bloco, reportar:
+O output DEVE começar com um sumário da camada de sensores:
+
+```markdown
+## Camada de Sensores (Bloco 0)
+
+- Status: [PASS | FAIL | PARTIAL | NO_SENSORS | STALE_REFRESHED]
+- Fonte: `.claude/runtime/sensors-last-run.json` (run_id: <id>, finished_at: <timestamp>)
+- Executados: N | Passaram: N | Falharam: N | Bloqueantes: N
+- Itens do Bloco A cobertos mecanicamente: [lista: A1 build, A2 test, A3 lint+types, A5 deps-audit]
+- Itens do Bloco A verificados pelo agente: [lista: A4, A6, parte de A5]
+```
+
+Se o projeto não declara sensores, substituir por:
+
+```markdown
+## Camada de Sensores (Bloco 0)
+
+- Status: NO_SENSORS (lacuna — projeto não declara `sensors.json`)
+- Impacto: Bloco A roda em modo ad-hoc (agente executa comandos sem contrato mecânico)
+- Recomendação: copiar `.claude/runtime/sensors.template.json` para `sensors.json` e declarar sensores da stack
+- Registrado como débito técnico no ledger
+```
+
+Depois do Bloco 0, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|
-| (id) | PASS / FAIL / N/A / NÃO VERIFICADO | output de comando, referência a arquivo, ou observação | Bloqueante / Recomendação / Info |
+| (id) | PASS / FAIL / N/A / NÃO VERIFICADO | output de sensor (`sensors-last-run.json:<sensor_id>`), output de comando ad-hoc, referência a arquivo, ou observação | Bloqueante / Recomendação / Info |
+
+Itens cobertos por sensor DEVEM citar explicitamente o sensor id na coluna Evidência. Itens verificados ad-hoc pelo agente DEVEM citar o comando executado e o exit code.
 
 Definição de status:
 - **PASS** — item verificado com evidência suficiente e conforme

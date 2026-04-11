@@ -120,15 +120,33 @@ Regras de consolidação:
 - **NÃO IMPLEMENTADO** — nenhum cenário COBERTO (caminho feliz ausente)
 - **NÃO VERIFICÁVEL** — todos os cenários são NÃO VERIFICÁVEIS
 
-## Passo 4 — Verificações dinâmicas (quando possível)
+## Passo 4 — Verificações dinâmicas via sensores mecânicos
 
-Se o projeto tiver testes, build ou servidor local configurado, tentar executar verificações dinâmicas para cenários marcados como "NÃO VERIFICÁVEL":
+Verificações dinâmicas devem vir preferencialmente da camada de sensores (`.claude/rules/sensors.md`), não de execução ad-hoc de comandos pelo agente. A camada de sensores produz `sensors-last-run.json` com exit codes verificáveis, eliminando o risco de o agente narrar "teste passou" quando na verdade falhou.
 
-- Rodar testes existentes que cubram o cenário
-- Tentar build pra confirmar que compila
-- Verificar outputs de comandos relevantes
+### 4.1 — Consumir `sensors-last-run.json`
 
-Atualizar o status dos cenários verificados dinamicamente.
+Ler `.claude/runtime/sensors-last-run.json`:
+
+- **Presente e fresco** (dentro das regras de staleness de `sensors.md`) → usar como fonte de evidência mecânica
+- **Stale** (código-fonte modificado após `finished_at`, ou `sensors.json` alterado) → invocar `/sensors-run` para atualizar antes de prosseguir
+- **Ausente** e `sensors.json` existe → invocar `/sensors-run` para gerar baseline
+- **Ausente** e `sensors.json` também ausente → registrar lacuna: "Projeto sem sensores declarados, verificação dinâmica impossível. Cenários NÃO VERIFICÁVEIS permanecem como estão. Recomendação: declarar sensores em `.claude/runtime/sensors.json`"
+
+### 4.2 — Mapear sensores para cenários
+
+Para cada cenário marcado `NÃO VERIFICÁVEL` no Passo 3:
+
+- Se há sensor do tipo `test` que cobre o fluxo do cenário e o sensor passou (`status: pass`) → promover cenário para `COBERTO` com evidência `sensors-last-run.json:<sensor_id>`
+- Se o sensor de testes **falhou** (`status: fail`) → cenário permanece `NÃO COBERTO` ou rebaixa para `FALHA ATIVA`, com o output_tail do sensor como evidência
+- Se há sensor de `type-check` que passou → evidência de que assinaturas e contratos estão consistentes (não prova comportamento, mas reduz risco de regressão)
+- Se há sensor de `build` que passou → evidência de que o código compila; cenários que dependem exclusivamente de compilação podem ser promovidos
+
+### 4.3 — Regra crítica: sensores são autoritativos sobre comportamento mecânico
+
+Se `/verify-spec` concluir "entrega X está IMPLEMENTADA" mas o sensor de teste que cobre X está em `status: fail`, o veredicto final **DEVE** ser rebaixado. O sensor é autoridade sobre comportamento mecânico observável — se o teste falha, o comportamento não está conforme a spec, independente de o código "parecer coberto" por análise estática.
+
+Esse é o ponto central da camada de sensores: o agente não pode contradizer o ambiente.
 
 ## Passo 5 — Resumo
 

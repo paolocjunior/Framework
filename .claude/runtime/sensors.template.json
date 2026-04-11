@@ -1,0 +1,69 @@
+{
+  "version": "1",
+  "_comment_header": "Template de declaracao de sensores mecanicos. Copiar para .claude/runtime/sensors.json e editar conforme a stack real do projeto. Ver .claude/rules/sensors.md para o contrato completo. Campos iniciados com '_comment' sao ignorados pelo parser (convencao jsonc-like).",
+  "sensors": [
+    {
+      "_comment": "Testes unitarios. Exit 0 = todos passaram. Default on_fail=block.",
+      "id": "unit-tests",
+      "description": "Testes unitarios (jest/pytest/cargo test/go test)",
+      "type": "test",
+      "command": "npm test -- --ci --passWithNoTests=false",
+      "timeout_seconds": 600,
+      "on_fail": "block",
+      "enabled": true
+    },
+    {
+      "_comment": "Linter. Exit 0 = sem violacoes. on_fail=block em projetos com padrao de qualidade alto; warn em legados que ainda estao limpando divida.",
+      "id": "lint",
+      "description": "Linter (eslint/ruff/cargo clippy)",
+      "type": "lint",
+      "command": "npm run lint",
+      "timeout_seconds": 120,
+      "on_fail": "block",
+      "enabled": true
+    },
+    {
+      "_comment": "Verificacao de tipos. Exit 0 = tipos validos. Critico em projetos TS/Python tipado.",
+      "id": "type-check",
+      "description": "Verificacao de tipos (tsc/mypy/pyright)",
+      "type": "type-check",
+      "command": "npm run typecheck",
+      "timeout_seconds": 180,
+      "on_fail": "block",
+      "enabled": true
+    },
+    {
+      "_comment": "Build de producao. Exit 0 = compila. Captura erros que typecheck nao pega (bundler, tree-shaking, etc).",
+      "id": "build",
+      "description": "Build de producao",
+      "type": "build",
+      "command": "npm run build",
+      "timeout_seconds": 600,
+      "on_fail": "block",
+      "enabled": true
+    },
+    {
+      "_comment": "Audit de dependencias. --audit-level=high ignora vulnerabilidades de severidade baixa/media. Usar on_fail=block para projetos em producao.",
+      "id": "deps-audit",
+      "description": "Audit de dependencias (npm audit/pip-audit/cargo audit)",
+      "type": "security-scan",
+      "command": "npm audit --audit-level=high",
+      "timeout_seconds": 120,
+      "on_fail": "block",
+      "requires": {
+        "network": true
+      },
+      "enabled": true
+    },
+    {
+      "_comment": "Exemplo de sensor customizado: check de estrutura do projeto. Pode ser substituido por qualquer script bash que retorne exit code significativo.",
+      "id": "custom-structure-check",
+      "description": "Verificacao customizada (exemplo: confirmar que arquivos obrigatorios existem)",
+      "type": "custom",
+      "command": "test -f README.md && test -f CLAUDE.md",
+      "timeout_seconds": 10,
+      "on_fail": "warn",
+      "enabled": false
+    }
+  ]
+}
