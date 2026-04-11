@@ -185,8 +185,8 @@ Consulta o resultado de sensores específicos em `sensors-last-run.json`.
 **Resultado:**
 - `pass` — **todos** os sensores listados estão `status: pass` no último run
 - `fail` — pelo menos 1 sensor da lista está `status: fail`
-- `unknown` — pelo menos 1 sensor não foi encontrado em `sensors-last-run.json` (não executado ainda) e nenhum falhou
-- `error` — `sensors-last-run.json` ausente, ou sensor referenciado não existe em `sensors.json`
+- `unknown` — `sensors-last-run.json` ausente, ou pelo menos 1 sensor não foi encontrado em `sensors-last-run.json` (não executado ainda), e nenhum falhou
+- `error` — sensor referenciado não existe em `sensors.json` (invalid sensor reference)
 
 **Evidência:** lista de `sensor_id: status` com exit codes.
 
