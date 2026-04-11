@@ -1,0 +1,187 @@
+{
+  "schema_version": "1",
+  "_comment": "Template de behaviours. Copiar para behaviours.json e editar para o projeto real. Cada behaviour dispara uma acao e compara o resultado observado contra uma expectativa declarada. Ver .claude/rules/behaviour-harness.md para o contrato completo. Regra de binding bidirecional: quando 'contract_ref' esta declarado, o phase contract correspondente deve declarar 'verifiable_by: behaviour' + 'behaviour_id' no AC referenciado — ambas as pontas do vinculo devem existir.",
+  "behaviours": [
+    {
+      "id": "b-01-login-success",
+      "description": "Login com credenciais validas redireciona para /dashboard e retorna cookie de sessao",
+      "phase_id": "phase-02-auth-flows",
+      "contract_ref": "AC1",
+      "type": "http",
+      "action": {
+        "command": "curl -sS -i -X POST http://localhost:3000/api/login -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"valid-password\"}' -o /tmp/login-response.txt -w '%{http_code}'",
+        "timeout_seconds": 30,
+        "working_dir": null
+      },
+      "expectations": [
+        {
+          "id": "E1",
+          "kind": "exit_code",
+          "expected": 0,
+          "required": true
+        },
+        {
+          "id": "E2",
+          "kind": "stdout_contains",
+          "expected": "200",
+          "required": true
+        },
+        {
+          "id": "E3",
+          "kind": "file_content",
+          "target": "/tmp/login-response.txt",
+          "expected": "Set-Cookie: session=",
+          "required": true
+        },
+        {
+          "id": "E4",
+          "kind": "not_contains",
+          "target": "/tmp/login-response.txt",
+          "expected": "error",
+          "required": true
+        }
+      ],
+      "on_fail": "block",
+      "requires": {
+        "network": false,
+        "database": true,
+        "running_server": true
+      },
+      "enabled": true
+    },
+    {
+      "id": "b-02-cli-build-idempotent",
+      "description": "CLI de build gera dist/main.js e a segunda execucao nao altera o arquivo (idempotencia)",
+      "phase_id": "phase-01-ui-shell",
+      "contract_ref": "AC2",
+      "type": "cli",
+      "action": {
+        "command": "npm run build >/dev/null 2>&1 && stat -c %Y dist/main.js",
+        "timeout_seconds": 90,
+        "working_dir": null
+      },
+      "expectations": [
+        {
+          "id": "E1",
+          "kind": "exit_code",
+          "expected": 0,
+          "required": true
+        },
+        {
+          "id": "E2",
+          "kind": "file_exists_after",
+          "target": "dist/main.js",
+          "required": true
+        }
+      ],
+      "on_fail": "block",
+      "requires": {
+        "network": false,
+        "database": false,
+        "running_server": false
+      },
+      "enabled": true
+    },
+    {
+      "id": "b-03-health-endpoint-json",
+      "description": "Endpoint /healthz retorna JSON com status=ok e versao nao vazia",
+      "phase_id": "phase-02-auth-flows",
+      "contract_ref": "AC3",
+      "type": "http",
+      "action": {
+        "command": "curl -sS http://localhost:3000/healthz",
+        "timeout_seconds": 15,
+        "working_dir": null
+      },
+      "expectations": [
+        {
+          "id": "E1",
+          "kind": "exit_code",
+          "expected": 0,
+          "required": true
+        },
+        {
+          "id": "E2",
+          "kind": "stdout_json_path",
+          "target": ".status",
+          "expected": "ok",
+          "required": true
+        },
+        {
+          "id": "E3",
+          "kind": "stdout_json_path",
+          "target": ".version",
+          "expected": "",
+          "required": false
+        }
+      ],
+      "on_fail": "block",
+      "requires": {
+        "network": false,
+        "database": false,
+        "running_server": true
+      },
+      "enabled": true
+    },
+    {
+      "id": "b-04-logs-no-secrets",
+      "description": "Logs da sessao nao contem tokens, senhas ou chaves API (assertion negativa)",
+      "phase_id": "phase-02-auth-flows",
+      "contract_ref": null,
+      "type": "state",
+      "action": {
+        "command": "cat logs/app.log | tail -n 500",
+        "timeout_seconds": 10,
+        "working_dir": null
+      },
+      "expectations": [
+        {
+          "id": "E1",
+          "kind": "not_contains",
+          "expected": "/password|token|api_key|secret/i",
+          "required": true
+        }
+      ],
+      "on_fail": "warn",
+      "requires": {
+        "network": false,
+        "database": false,
+        "running_server": false
+      },
+      "enabled": true
+    },
+    {
+      "id": "b-05-rate-limit-returns-429",
+      "description": "Apos N requests em janela curta, endpoint de login retorna 429 Too Many Requests",
+      "phase_id": "phase-02-auth-flows",
+      "contract_ref": "AC4",
+      "type": "http",
+      "action": {
+        "command": "for i in $(seq 1 20); do curl -sS -o /dev/null -w '%{http_code}\\n' -X POST http://localhost:3000/api/login -d '{}'; done | tail -n 1",
+        "timeout_seconds": 60,
+        "working_dir": null
+      },
+      "expectations": [
+        {
+          "id": "E1",
+          "kind": "exit_code",
+          "expected": 0,
+          "required": true
+        },
+        {
+          "id": "E2",
+          "kind": "stdout_contains",
+          "expected": "429",
+          "required": true
+        }
+      ],
+      "on_fail": "block",
+      "requires": {
+        "network": false,
+        "database": false,
+        "running_server": true
+      },
+      "enabled": false
+    }
+  ]
+}

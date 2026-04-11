@@ -1,6 +1,6 @@
-# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts
+# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts + Behaviour Harness
 
-Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre comportamento, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável) e **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback).
+Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre correção funcional, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável), **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback) e **behaviour/runtime harness** (verificação observável de comportamento em runtime — requisição real, arquivo real, JSON path real — com evidência estruturada expected-vs-actual).
 
 ## Estrutura
 
@@ -10,8 +10,9 @@ projeto/
 ├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
 └── .claude/
     ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 27 checklists de qualidade
+    ├── rules/                         # 28 checklists de qualidade
     │   ├── agent-contracts.md         # Protocolo de invocação e parsing de agents
+    │   ├── behaviour-harness.md       # Protocolo de behaviour/runtime harness (expected-vs-actual)
     │   ├── code-review.md             # Critérios de revisão
     │   ├── context-loading.md         # Carregamento de contexto no início de commands
     │   ├── database-security.md       # Segurança de banco de dados
@@ -38,7 +39,7 @@ projeto/
     │   ├── structural-quality.md      # Qualidade estrutural
     │   ├── testing.md                 # Padrões de testes
     │   └── web-api-security.md        # Segurança web e API
-    ├── commands/                       # 23 slash commands
+    ├── commands/                       # 24 slash commands
     ├── agents/                         # 8 subagents (6 especializados + 2 transversais)
     ├── hooks/                          # 11 scripts de validação automática
     └── runtime/
@@ -49,6 +50,9 @@ projeto/
         ├── sensors.template.json      # Template de declaração de sensores mecânicos
         ├── sensors.json               # Declaração de sensores do projeto (criado por cópia)
         ├── sensors-last-run.json      # Veredicto estruturado da última execução (efêmero)
+        ├── behaviours.template.json   # Template de declaração de behaviours/runtime harness
+        ├── behaviours.json            # Declaração de behaviours do projeto (criado por cópia)
+        ├── behaviours-last-run.json   # Veredicto estruturado expected-vs-actual (efêmero)
         ├── contracts.template.json    # Template de contrato de execução por fase
         ├── contracts/                 # Contratos estruturados por fase
         │   ├── active.json            # Ponteiro para contrato da fase ativa
@@ -147,6 +151,7 @@ Princípio: **se o comando retorna 0, o sensor passou — nenhum agente pode rei
 | `/sprint-create` | Criar sprint contract (granularidade intra-fase) com evaluator declarativo |
 | `/sprint-evaluate` | Executar evaluator do sprint ativo e registrar verdict append-only em `evaluation_history` |
 | `/sprint-close` | Fechar sprint com transição human-confirmed para `passed \| failed \| deferred` |
+| `/behaviour-run` | Executar behaviours declarados e produzir veredicto estruturado expected-vs-actual |
 
 ## Subagents
 
@@ -225,5 +230,29 @@ Quarto item da fila de prioridades derivada da análise de Harness Engineering. 
   - `/ship-check` — novo **Bloco 0.6** lista sprints da fase ativa. Sprints são visibilidade operacional, não gate — o phase contract (Bloco 0.5) permanece autoridade sobre compromisso da fase
 
 **Princípio:** phase contract é imutável. O vínculo fase → sprints é **derivado do filesystem** (`contracts/sprints/<parent_phase_id>/`), não registrado no phase contract. Sprints são opt-in: projetos que preferem operar apenas com phase contracts ignoram a camada. Quando usados, sprint contract fechado é imutável — reabertura exige criar sprint novo (`sprint-01b-v2`), nunca editar o fechado. `evaluation_history` é append-only por design.
+
+## Pós-V4 — Behaviour/Runtime Harness
+
+Quinto item da fila de prioridades derivada da análise de Harness Engineering. Sensores fecharam "o ambiente não confirma correção funcional"; contratos fecharam "a fase não declara upstream o que promete"; sprints fecharam "ciclo curto de feedback intra-fase"; behaviours fecham a lacuna complementar **"análise estática e sensores funcionais passam, mas o comportamento runtime observável falha"**. Um sensor responde "o código compila, os testes passam, o lint passa?" — um behaviour responde "o endpoint `/api/login` retorna 200 com cookie `session=` quando POST com credenciais válidas?".
+
+Enquanto sensores medem correção funcional por exit code de test/lint/build/audit, behaviours medem comportamento observável por **comparação estruturada expected-vs-actual** — despacham uma ação declarada (HTTP, CLI, inspeção de estado) contra o sistema rodando e comparam stdout, exit code, conteúdo de arquivo e JSON paths contra expectativas explícitas. O veredicto vem da comparação mecânica, nunca da interpretação do agente.
+
+- **1 rule nova**: `behaviour-harness.md` — schema completo (6 tipos de expectation: `exit_code`, `stdout_contains`, `stdout_json_path`, `file_content`, `file_exists_after`, `not_contains`), hardening obrigatório de `action.command` (timeout obrigatório, read-only por contrato, sem rede por default, exit code capturado), staleness policy como first-class rule (3 critérios, nunca tratada como PASS), bidirectional binding contract_ref ↔ behaviour_id
+- **1 command novo**: `/behaviour-run` — executa behaviours declarados e produz veredicto estruturado expected-vs-actual. Suporta flags `--offline`, `--only <id>`, `--skip <id>`, `--contract-ref <AC>`
+- **3 artefatos novos em runtime**: `behaviours.template.json` (bootstrap com 5 exemplos), `behaviours.json` (declaração por projeto), `behaviours-last-run.json` (veredicto estruturado efêmero)
+- **1 rule modificada**: `execution-contracts.md` — expansão aditiva de `acceptance_criteria[].verifiable_by` para aceitar `"behaviour"`, com 5 regras de bidirectional binding (AC → behaviour via `behaviour_id`; behaviour → AC via `contract_ref`; binding gap detectado como lacuna informativa)
+- **3 commands modificados** (consumers **read-only absolutos** — nunca invocam `/behaviour-run`):
+  - `/contract-check` — novo **Passo 7.6** valida behaviours contra AC com `verifiable_by: "behaviour"`; novas regras R2.1/R5.1/R6.1 estendem a tabela R1-R10 deterministic verdict para tratar behaviour `fail` como FAILED, `stale`/`unknown` como AT_RISK, `NEVER_RUN` como ON_TRACK
+  - `/ship-check` — novo **Bloco 0.7** consome `behaviours-last-run.json` como gate paralelo ao Bloco 0 (sensores). `blocking_failures > 0` força `NÃO PRONTO` incondicionalmente — mesmo com sensores verdes, contrato OK e risk-assessment LOW_RISK
+  - `/verify-spec` — novo **Passo 4.6** cruza behaviours com cenários da spec. Cenário `IMPLEMENTADO` por análise estática é **rebaixado** se behaviour com `on_fail: block` está em `fail`; cenário `NÃO VERIFICÁVEL` é **promovido** para `COBERTO` se behaviour `pass` fornece evidência runtime
+
+**Princípios:**
+
+1. **Autoridade runtime paralela.** Sensores (correção funcional estática) e behaviours (comportamento runtime observável) são gates independentes. Nenhum mascara o outro — cada um tem veredicto próprio, e qualquer um pode forçar `NÃO PRONTO` por si só.
+2. **Expected-vs-actual é contrato mecânico.** O agente nunca diz "a resposta parece correta". A comparação entre `expected` (declarado) e `actual` (observado) é feita pelo executor, não narrada pelo agente.
+3. **Staleness nunca é PASS.** `behaviours.json` modificado após o run, contrato aprovado/modificado após o run, ou behaviour `enabled: true` ausente de `results[]` → stale. Consumers reportam staleness, rebaixam cenários, mas **nunca** re-executam `/behaviour-run` automaticamente.
+4. **Consumers read-only absolutos.** `/contract-check`, `/ship-check` e `/verify-spec` leem `behaviours-last-run.json`, nunca invocam `/behaviour-run`. Execução é responsabilidade explícita do usuário — preserva determinismo e evita loops de execução acoplados.
+5. **Bidirectional binding mandatório.** AC com `verifiable_by: "behaviour"` exige `behaviour_id`; behaviour que satisfaz AC exige `contract_ref`. As duas pontas devem existir — binding gap (só um lado declarado) é lacuna informativa detectada pelos consumers.
+6. **Opt-in pattern.** Projetos sem `behaviours.json` operam em modo degradado (NO_BEHAVIOURS como lacuna informativa, não bloqueio). Declaração é responsabilidade do projeto, não inferida pelo framework.
 
 Para o changelog completo, ver seção `## Changelog` no `CLAUDE.md`.

@@ -57,8 +57,9 @@ O arquivo vive em `.claude/runtime/contracts/phase-<phase_id>.json`. É versiona
       "id": "AC1",
       "description": "string (comportamento observável)",
       "linked_requirement": "string opcional (ex: AUTH-01)",
-      "verifiable_by": "sensor | manual_test | code_inspection",
-      "sensor_id": "string opcional"
+      "verifiable_by": "sensor | behaviour | manual_test | code_inspection",
+      "sensor_id": "string opcional (obrigatório quando verifiable_by == sensor)",
+      "behaviour_id": "string opcional (obrigatório quando verifiable_by == behaviour)"
     }
   ],
   "sensors_required": ["array de sensor ids de sensors.json"],
@@ -98,6 +99,20 @@ O arquivo vive em `.claude/runtime/contracts/phase-<phase_id>.json`. É versiona
 - `preconditions` — se a fase depende de estado específico antes do start
 - `evidence` — populado durante a execução
 - `verdict`, `verdict_reason` — populados ao fechar a fase
+
+### Verificação de acceptance_criteria por behaviour (expansão aditiva)
+
+A partir da camada de behaviour harness (ver `.claude/rules/behaviour-harness.md`), o campo `acceptance_criteria[].verifiable_by` aceita o valor `"behaviour"`, além dos existentes `sensor | manual_test | code_inspection`. A expansão é **aditiva**: phase contracts antigos que usam apenas os valores anteriores continuam válidos sem mudança.
+
+**Regras:**
+
+1. Quando `verifiable_by: "behaviour"`, o campo `behaviour_id` é **obrigatório** e deve apontar para um `id` existente em `.claude/runtime/behaviours.json`. Referência ausente ou quebrada torna o contrato inválido.
+2. Quando `verifiable_by: "sensor"`, continua obrigatório o campo `sensor_id` apontando para um sensor declarado em `sensors.json`. Semântica inalterada.
+3. Quando `verifiable_by: "manual_test"` ou `"code_inspection"`, nenhum campo de binding adicional é requerido.
+4. **Binding bidirecional obrigatório.** Se um AC usa `verifiable_by: "behaviour"` + `behaviour_id: "b-01-login-success"`, o behaviour correspondente em `behaviours.json` deve declarar `contract_ref: "AC1"` (o id deste AC) **e** `phase_id: "<parent_phase_id>"` (o id desta fase). Ambas as pontas do vínculo devem existir para o consumer (`/contract-check`) considerar o AC coberto por runtime. Se só uma ponta existe, o consumer reporta **lacuna de binding** e o AC não é considerado satisfeito.
+5. `behaviour_id` nunca é inferido pelo framework. O valor é declarado manualmente pelo usuário ao criar ou editar o phase contract.
+
+**Interação com `/contract-check`:** Para cada AC com `verifiable_by: "behaviour"`, o command lê `behaviours-last-run.json` (read-only), localiza a entrada com id igual a `behaviour_id`, valida o binding bidirecional, aplica a política de staleness da camada de behaviours (ver `behaviour-harness.md`) e rebaixa o veredicto do contrato conforme a tabela R1-R10 se o behaviour está em `fail`, `error` ou stale. O command nunca dispara `/behaviour-run` — staleness é reportada, não resolvida.
 
 ## Lifecycle
 

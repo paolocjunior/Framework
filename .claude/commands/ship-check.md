@@ -20,7 +20,7 @@ Realizar verificação pré-entrega do projeto, avaliando se está pronto para d
 
 Os comandos e ferramentas de verificação devem ser adaptados à stack do projeto (ex.: npm/yarn/pnpm/bun, pip/pytest, cargo, gradle/gradlew, xcodebuild/swift, dotnet, cmake/make, go, unity/godot export pipeline). Os itens da checklist são universais; os comandos específicos variam por tecnologia.
 
-A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido pela camada de sensores mecânicos** (`.claude/rules/sensors.md`), que substitui a execução ad-hoc de `npm test`, `tsc`, `npm run build` etc. por resultados estruturados vindos de exit code.
+A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por três camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), e behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10) e expected-vs-actual runtime.
 
 ---
 
@@ -175,6 +175,77 @@ Este bloco **nunca modifica** nada:
 
 ---
 
+## Bloco 0.7 — Behaviours runtime (gate observável)
+
+Após consumir sensores (Bloco 0), contrato de execução (Bloco 0.5) e sprints informativos (Bloco 0.6), o ship-check **deve consumir o veredicto estruturado de behaviours runtime**, quando existirem. Behaviours são a camada complementar aos sensores: sensores validam o código **estático** (compila, testa, lint passa); behaviours validam o **comportamento observável em runtime** quando uma ação declarada é disparada contra o sistema real. Ambas as camadas são autoritativas em seus respectivos domínios — o exit code do comando e a comparação expected-vs-actual são a verdade, não a narrativa do agente.
+
+Este bloco é **paralelo e independente** do Bloco 0: nem todos os projetos declaram behaviours (são opt-in), mas quando declaram, o gate runtime é tão bloqueante quanto o gate estático de sensores.
+
+### Passo 0.7.1 — Verificar existência de `behaviours.json`
+
+Ler `.claude/runtime/behaviours.json`:
+
+- **Ausente** → projeto não declara behaviours. Registrar como **lacuna informativa** no output (recomendação opcional: "Copiar `behaviours.template.json` para `behaviours.json` e declarar behaviours observáveis da stack se o produto tem comportamento runtime a verificar"). **Não bloqueia `PRONTO`** — behaviours são opt-in e a ausência não é débito técnico obrigatório (diferente de sensores, que fecham lacuna de build/test/lint; behaviours fecham lacuna de runtime observável que nem todos os projetos precisam). Seguir para Bloco A.
+- **Presente** → seguir para Passo 0.7.2.
+
+### Passo 0.7.2 — Verificar existência e frescor de `behaviours-last-run.json`
+
+Ler `.claude/runtime/behaviours-last-run.json`:
+
+- **Ausente** → behaviours declarados mas nunca executados. Registrar no output como "Behaviours declarados (N) mas nunca executados via `/behaviour-run`". **Rebaixar `PRONTO` para `PRONTO COM RESSALVAS`** — o projeto declarou gate runtime mas não rodou. Este command **nunca** invoca `/behaviour-run` automaticamente (read-only absoluto).
+- **Presente** → validar schema via `jq empty`. Se inválido, reportar como lacuna equivalente a ausente.
+
+### Passo 0.7.3 — Detectar staleness
+
+Aplicar as 3 regras de staleness de `.claude/rules/behaviour-harness.md`:
+
+1. **Global staleness por declaração:** se `mtime(behaviours.json) > finished_at` do last-run → `behaviours-last-run.json` está stale (declaração mudou após a execução).
+2. **Global staleness por contrato:** para cada behaviour com `contract_ref` declarado, se o phase contract vinculado tem `approved_at > finished_at` do last-run, ou `mtime(phase-<id>.json) > finished_at` → stale (contrato aprovado ou modificado após a execução).
+3. **Staleness específica por behaviour:** se qualquer behaviour com `enabled: true` em `behaviours.json` **não aparece** em `results[]` do last-run → esse behaviour específico é stale (foi adicionado/habilitado após a execução).
+
+Staleness nunca é tratada como `PASS`. Consumers leem e reportam; nunca executam `/behaviour-run`.
+
+### Passo 0.7.4 — Mapear resultados ao ship-check
+
+Ler `verdict` e contagens de `behaviours-last-run.json`:
+
+| Campo do last-run | Interpretação no ship-check |
+|---|---|
+| `verdict: PASS` | Todos os behaviours executados passaram (ou falhas têm `on_fail: warn`) |
+| `verdict: FAIL` | Pelo menos 1 behaviour falhou com `on_fail: block` |
+| `verdict: PARTIAL` | Algum behaviour foi pulado (ex: `--offline` quando requires network) e os executados passaram |
+| `verdict: NO_BEHAVIOURS` | Arquivo presente mas vazio — equivalente a lacuna |
+| `blocking_failures > 0` | **Força `NÃO PRONTO` incondicionalmente** — mesmo com risk-assessment LOW_RISK e tudo mais OK |
+
+### Passo 0.7.5 — Gate bloqueante
+
+Se `behaviours-last-run.json` reporta `blocking_failures > 0`, o ship-check **NÃO pode reportar PRONTO**, independente de qualquer outro sinal. Rebaixar imediatamente para `NÃO PRONTO` e listar os behaviours que falharam (com `behaviour_id`, `expectation_id` que falhou, `expected`, `actual`) como bloqueadores.
+
+**Razão:** princípio do behaviour harness é que **o ambiente runtime é autoritativo**. Se o agente concluísse PRONTO contra um behaviour reportando "esperado 200, observado 500", o framework estaria voltando ao modelo self-evaluation que behaviours existem para eliminar. Exit code e comparação estruturada são a verdade.
+
+### Passo 0.7.6 — Gate de ressalva (staleness e PARTIAL)
+
+Se qualquer uma das condições abaixo é verdadeira, rebaixar `PRONTO` → `PRONTO COM RESSALVAS` (não força `NÃO PRONTO` por si só):
+
+- `behaviours-last-run.json` em `verdict: PARTIAL` (behaviours pulados)
+- Staleness global detectada (regra 1 ou 2)
+- Staleness específica detectada (regra 3 — behaviour novo/habilitado sem run)
+- `behaviours-last-run.json` ausente mas `behaviours.json` declara behaviours `enabled: true`
+- Algum behaviour tem `on_fail: warn` em `fail` (não bloqueante mas é risco registrado)
+
+### Passo 0.7.7 — Regra de read-only absoluto
+
+Este bloco **nunca modifica** nada:
+- Não edita `behaviours.json`
+- Não edita `behaviours-last-run.json`
+- Não invoca `/behaviour-run` (nem quando ausente, nem quando stale)
+- Não escreve no ledger diretamente (a atualização do ledger no final do ship-check é responsabilidade da seção "Atualização do Ledger" e pode citar behaviours como evidência, mas o Bloco 0.7 em si é read-only)
+- Não modifica phase contract nem `active.json`
+
+**Princípio:** rodar `/ship-check` múltiplas vezes contra o mesmo estado sempre retorna o mesmo veredicto. A decisão de executar `/behaviour-run` é do humano ou do workflow explícito, nunca inferida por `/ship-check`.
+
+---
+
 ## Bloco A — Release Viability
 
 Verifica se o projeto **compila, funciona e não está quebrado**. Itens deste bloco são **bloqueantes** — falha aqui significa que o projeto não está pronto.
@@ -324,7 +395,48 @@ Se a fase não declara sprints, substituir por:
 - Sprints são granularidade intra-fase opcional. A ausência é operação normal, não é débito técnico.
 ```
 
-Depois dos Blocos 0, 0.5 e 0.6, para cada item dos Blocos A e B, reportar:
+Depois dos sprints, incluir o sumário de behaviours runtime (Bloco 0.7):
+
+```markdown
+## Behaviours Runtime (Bloco 0.7)
+
+- Status: [PASS | FAIL | PARTIAL | NO_BEHAVIOURS | NEVER_RUN | STALE]
+- Fonte: `.claude/runtime/behaviours-last-run.json` (run_id: <id>, finished_at: <timestamp>)
+- Declarados: N | Executados: X | Passaram: Y | Falharam: Z | Bloqueantes: W
+- Staleness detectada: [nenhuma | global por declaração | global por contrato | específica: <behaviour_ids>]
+
+| Behaviour ID | Type | Status | on_fail | contract_ref | Evidência |
+|--------------|------|--------|---------|--------------|-----------|
+| `b-01-login-success` | http | PASS | block | AC1 | exit 0, E1-E4 match |
+| `b-05-rate-limit-returns-429` | http | FAIL | block | AC4 | E2 expected "429", actual "200" |
+| `b-04-logs-no-secrets` | state | FAIL | warn | — | E1 matched forbidden pattern |
+
+> Comportamentos em `FAIL` com `on_fail: block` forçam `NÃO PRONTO` (Bloco 0.7 é gate runtime, igual ao Bloco 0 é gate estático).
+```
+
+Se o projeto não declara behaviours, substituir por:
+
+```markdown
+## Behaviours Runtime (Bloco 0.7)
+
+- Status: NO_BEHAVIOURS (projeto não declara `behaviours.json`)
+- Impacto: Ship-check não valida comportamento runtime observável. Se o produto tem comportamento runtime (endpoints, CLI, fluxos interativos) a verificar, considerar declarar behaviours.
+- Behaviours são opt-in — ausência não é débito técnico obrigatório.
+- Recomendação opcional: copiar `.claude/runtime/behaviours.template.json` para `behaviours.json` se o produto beneficia de expected-vs-actual runtime.
+```
+
+Se os behaviours estão declarados mas nunca foram executados:
+
+```markdown
+## Behaviours Runtime (Bloco 0.7)
+
+- Status: NEVER_RUN (declarados N behaviours, mas `behaviours-last-run.json` ausente)
+- Impacto: Gate runtime declarado mas não executado. Rebaixa `PRONTO` → `PRONTO COM RESSALVAS`.
+- Recomendação: rodar `/behaviour-run` antes da entrega para consumir gate runtime declarado.
+- Observação: ship-check é read-only e **não** invoca `/behaviour-run` automaticamente — decisão humana.
+```
+
+Depois dos Blocos 0, 0.5, 0.6 e 0.7, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|
@@ -366,6 +478,7 @@ Com base nos resultados, aplicar regras de rebaixamento na ordem (primeira que c
 1. **NÃO PRONTO** se:
    - Qualquer bloqueante do Bloco A falhou, OU
    - `sensors-last-run.json` reporta `blocking_failures > 0`, OU
+   - `behaviours-last-run.json` reporta `blocking_failures > 0` (Bloco 0.7), OU
    - Contrato ativo (Bloco 0.5) está em `FAILED`, `failed`, `rolled_back` ou `deferred`, OU
    - `risk-assessment` reportou `BLOCKING_RISK`
 
@@ -374,14 +487,21 @@ Com base nos resultados, aplicar regras de rebaixamento na ordem (primeira que c
    - `risk-assessment` reportou `MEDIUM_RISK` ou `HIGH_RISK`, OU
    - Contrato ativo (Bloco 0.5) está em `AT_RISK` ou `ON_TRACK`, OU
    - Contrato ativo ausente (lacuna `NO_CONTRACT`) ou apenas `DRAFT_ONLY`, OU
-   - `sensors.json` ausente (lacuna `NO_SENSORS`)
+   - `sensors.json` ausente (lacuna `NO_SENSORS`), OU
+   - `behaviours-last-run.json` em `PARTIAL` (behaviours pulados), OU
+   - `behaviours-last-run.json` ausente mas `behaviours.json` declara behaviours `enabled: true` (NEVER_RUN), OU
+   - Staleness de behaviours detectada (global por declaração/contrato ou específica), OU
+   - Algum behaviour em `fail` com `on_fail: warn` (não bloqueante, mas risco registrado)
 
 3. **PRONTO** se:
    - Todos os bloqueantes do Bloco A passam, E
    - `sensors-last-run.json` reporta `PASS` (ou lacuna NO_SENSORS com veredicto consciente), E
+   - `behaviours-last-run.json` reporta `PASS` fresh (ou lacuna NO_BEHAVIOURS — behaviours são opt-in), E
    - Contrato ativo (Bloco 0.5) está em `READY_TO_CLOSE` ou já `done`, E
    - Recomendações do Bloco B sem risco alto, E
    - `risk-assessment` em `LOW_RISK`
+
+**Princípio de autoridade paralela:** sensores (Bloco 0) e behaviours (Bloco 0.7) são gates paralelos e independentes. Ambos podem forçar `NÃO PRONTO` se reportarem `blocking_failures > 0`. Falha em um não mascara o outro — ambos devem passar (ou ser ausentes conscientemente) para o ship passar.
 
 Incluir no output:
 - Lista de bloqueantes que falharam (se houver)
@@ -389,6 +509,7 @@ Incluir no output:
 - Lista de itens não verificados com motivo
 - Resultado do `risk-assessment` com a matriz de riscos citada
 - Veredicto do contrato ativo do Bloco 0.5 com a regra que decidiu (R1–R10 do `/contract-check`)
+- Behaviours runtime (Bloco 0.7): bloqueantes em fail (se houver), staleness detectada, behaviours em `warn`
 
 ---
 

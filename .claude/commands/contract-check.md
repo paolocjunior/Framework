@@ -34,6 +34,7 @@ Este é o consumidor primário de `.claude/rules/execution-contracts.md`. Enquan
 - Contrato ativo em `.claude/runtime/contracts/active.json` apontando para um contrato válido
 - Status do contrato ativo em `approved`, `in_progress`, `done`, `failed` ou `deferred` (contratos em `draft` são ignorados com aviso)
 - (Opcional) `.claude/runtime/sensors-last-run.json` — necessário apenas se o contrato declara `sensors_required`
+- (Opcional) `.claude/runtime/behaviours-last-run.json` — necessário apenas se o contrato declara algum acceptance criterion com `verifiable_by: "behaviour"`
 
 Se não há contrato ativo, o command reporta imediatamente:
 
@@ -204,6 +205,61 @@ Sprints são sub-granularidade opcional da fase (ver `.claude/rules/sprint-contr
 
 O objetivo é dar visibilidade ao humano: "a fase tem N sprints, X fechados como passed, Y como failed, Z em andamento" — sem afetar o veredicto do phase contract.
 
+### Passo 7.6 — Cruzar com behaviours runtime ativos
+
+Esta verificação aplica-se quando o contrato declara `verifiable_by: "behaviour"` em ao menos um acceptance criterion. Behaviours são runtime observables executados por `/behaviour-run` — este command **consome** o resultado e **nunca executa** o `/behaviour-run`. Ver `.claude/rules/behaviour-harness.md` para o protocolo completo e `.claude/rules/execution-contracts.md` (subseção "Verificação de acceptance_criteria por behaviour") para o binding bidirecional.
+
+1. **Verificar se o contrato tem pelo menos 1 AC com `verifiable_by: "behaviour"`:**
+   - Se não → pular o Passo 7.6 completamente (sem aviso). A seção correspondente no output não aparece.
+   - Se sim → continuar.
+
+2. **Ler `.claude/runtime/behaviours-last-run.json`:**
+   - Se ausente → todas as ACs com `verifiable_by: "behaviour"` são marcadas como `NOT_RUN`. Adicionar ao output a recomendação: "rodar `/behaviour-run` antes de prosseguir". Seguir para o Passo 8 com esses status — o veredicto será rebaixado via R5.1.
+   - Se presente → validar via `jq empty`. Se inválido → reportar erro de schema e marcar todas as ACs-behaviour como `UNSTABLE`.
+
+3. **Para cada AC com `verifiable_by: "behaviour"`:**
+
+   a. **Validar presença de `behaviour_id`:**
+      - O schema expandido exige `behaviour_id` quando `verifiable_by == "behaviour"`. Se ausente → `INVALID_BEHAVIOUR_REF` (contrato malformado).
+
+   b. **Localizar o behaviour em `behaviours-last-run.json.results[]` pelo `id`:**
+      - Se o id não aparece em `results[]` → `NOT_RUN` (behaviour declarado no contrato mas não executado, ou `behaviour_id` do AC aponta para behaviour inexistente — ambos precisam intervenção humana).
+
+   c. **Validar binding bidirecional:**
+      - O behaviour encontrado deve ter `contract_ref` igual ao id do AC. Se diferente ou ausente → `BINDING_GAP` (AC referencia behaviour que não reconhece o AC de volta).
+      - O behaviour encontrado deve ter `phase_id` igual ao `phase_id` do contrato atual. Se diferente → `BINDING_GAP` (behaviour está vinculado a outra fase).
+      - Binding gap **nunca é resolvido mecanicamente** — o framework não infere bindings. Binding de mão única é reportado como lacuna explícita.
+
+   d. **Se binding OK, ler `results[].status` do behaviour:**
+      - `pass` → `PASS`
+      - `fail` com `on_fail: block` → `FAIL_BLOCKING`
+      - `fail` com `on_fail: warn` → `FAIL_WARN`
+      - `error` (timeout, comando inválido, hardening violado) → `UNSTABLE`
+      - `skipped` → `NOT_RUN` (pulado por flag `--offline`/`--no-db`/`--no-server` ou `requires` não satisfeito)
+
+4. **Aplicar staleness detection** do `behaviours-last-run.json` (3 critérios de `.claude/rules/behaviour-harness.md`):
+
+   a. **`behaviours.json` foi modificado após `finished_at` do run?** — comparar `mtime` de `.claude/runtime/behaviours.json` com `behaviours-last-run.json.finished_at`. Se `behaviours.json` é mais recente → **stale global** (a declaração de behaviours mudou após a última execução; o resultado não representa mais o estado atual).
+
+   b. **Phase contract foi aprovado ou modificado após `finished_at`?** — comparar `approved_at` do contrato (ou `mtime` do arquivo do contrato, o que for mais recente) com `finished_at` do run. Se mais recente → **stale global** (o contrato que os behaviours deveriam validar mudou após a execução).
+
+   c. **Behaviour com `enabled: true` em `behaviours.json` mas ausente em `results[]`?** — enumerar todos os behaviours em `behaviours.json` com `enabled: true` e verificar presença em `behaviours-last-run.json.results[]`. Cada ausente é **stale específico** (declarado mas não executado na última run).
+
+5. **Aplicar o resultado de staleness:**
+   - **Stale global** (regras a ou b) → **todas** as ACs com `verifiable_by: "behaviour"` são marcadas como `STALE`, mesmo que o status gravado tenha sido `pass`. **Consumers nunca tratam stale como pass.** O veredicto é rebaixado via R5.1.
+   - **Stale específico** (regra c) → apenas as ACs vinculadas ao behaviour ausente são marcadas como `NOT_RUN` (o behaviour existe na declaração mas não foi executado na última run).
+
+6. **Não executar `/behaviour-run`.** O command é read-only absoluto. Staleness e ausência são reportadas ao humano; a decisão de re-executar é humana.
+
+Tabela de saída (aparece apenas se o contrato declara AC com `verifiable_by: "behaviour"`):
+
+| AC ID | Behaviour ID | Binding | Status runtime | on_fail | Evidência |
+|-------|--------------|---------|----------------|---------|-----------|
+| AC1 | `b-01-login-success` | OK | PASS | block | 4/4 expectations passed; exit_code=0, `Set-Cookie: session=` presente |
+| AC2 | `b-02-cli-build-idempotent` | OK | FAIL_BLOCKING | block | 1/2 failed: E2 `file_exists_after` — `dist/main.js` ausente |
+| AC3 | `b-03-health-endpoint-json` | OK | STALE | block | run stale: `behaviours.json` modificado em 2026-04-11T10:30, run foi em 2026-04-11T10:00 |
+| AC4 | `b-99-missing` | BINDING_GAP | — | — | behaviour `b-99-missing` não existe em `behaviours-last-run.json` |
+
 ### Passo 8 — Agregar veredicto
 
 Aplicar a tabela de agregação **determinística** abaixo. A ordem das regras importa — a primeira regra que casa decide o veredicto.
@@ -212,17 +268,22 @@ Aplicar a tabela de agregação **determinística** abaixo. A ordem das regras i
 |---|---|---|
 | R1 | Qualquer `deliverable.required=true` com status `MISSING`, `MISSING_FILE`, `MISSING_PATTERN`, `EMPTY` ou `INVALID_SENSOR_REF` | **FAILED** |
 | R2 | Qualquer `sensors_required` com status `FAIL_BLOCKING` ou `INVALID_SENSOR_REF` | **FAILED** |
+| R2.1 | Qualquer AC com `verifiable_by: "behaviour"` em status `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` ou `BINDING_GAP` | **FAILED** |
 | R3 | Qualquer `deliverable.required=true` com status `FAIL` (de sensor) | **FAILED** |
 | R4 | Qualquer precondition `FAIL` (mecanicamente verificável) | **FAILED** |
 | R5 | Qualquer `sensors_required` com status `NOT_RUN` ou `UNSTABLE` | **AT_RISK** |
+| R5.1 | Qualquer AC com `verifiable_by: "behaviour"` em status `NOT_RUN`, `UNSTABLE` ou `STALE` | **AT_RISK** |
 | R6 | Qualquer `sensors_required` com status `FAIL_WARN` | **AT_RISK** |
+| R6.1 | Qualquer AC com `verifiable_by: "behaviour"` em status `FAIL_WARN` | **AT_RISK** |
 | R7 | Qualquer `deliverable.required=false` com status `MISSING` ou `FAIL` | **AT_RISK** |
 | R8 | Qualquer precondition `MANUAL_CHECK` ainda não confirmado (em status `approved`) | **AT_RISK** |
-| R9 | Todos os `deliverable.required=true` `PASS`, todos `sensors_required` `PASS`, todas preconditions `PASS` ou `MANUAL_CHECK`, e `acceptance_criteria` sem nenhum `FAIL` mecânico | **READY_TO_CLOSE** |
+| R9 | Todos os `deliverable.required=true` `PASS`, todos `sensors_required` `PASS`, todas ACs com `verifiable_by: "behaviour"` em `PASS`, todas preconditions `PASS` ou `MANUAL_CHECK`, e `acceptance_criteria` sem nenhum `FAIL` mecânico | **READY_TO_CLOSE** |
 | R10 | Nenhuma regra acima casa (progresso parcial, nada bloqueante) | **ON_TRACK** |
 
 **Princípios da agregação:**
-- **Sensores são autoridade.** Se um sensor `FAIL_BLOCKING`, o veredicto não pode ser `READY_TO_CLOSE` — não importa quantos deliverables estão `PASS` por análise estática.
+- **Sensores são autoridade sobre correção funcional estática.** Se um sensor `FAIL_BLOCKING`, o veredicto não pode ser `READY_TO_CLOSE` — não importa quantos deliverables estão `PASS` por análise estática.
+- **Behaviours são autoridade sobre runtime observável.** Se um behaviour referenciado em AC está `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` ou `BINDING_GAP`, o veredicto é `FAILED` via R2.1 — o runtime não confirma o critério de aceite, e binding de mão única é tratado como falha crítica.
+- **Staleness nunca vira PASS.** Behaviours em estado `STALE` são rebaixados via R5.1 — mesmo que o último resultado gravado tenha sido `pass`. A recuperação é sempre humana (re-executar `/behaviour-run`).
 - **Manual check nunca vira PASS automaticamente.** Manual checks mantêm o contrato em `AT_RISK` ou `ON_TRACK`; só a promoção humana para `done` via `/contract-create` (v2 ou ação manual) pode fechar.
 - **Deliverables opcionais não bloqueiam** `READY_TO_CLOSE` — mas aparecem em `AT_RISK` se ausentes, para visibilidade.
 - **Agregação é determinística.** Dois runs consecutivos com o mesmo estado produzem o mesmo veredicto. Nenhum componente probabilístico.
@@ -296,6 +357,17 @@ Resumo: X required PASS / Y required FAIL / Z opcionais MISSING
 
 **Observação:** o veredicto do phase contract acima é calculado exclusivamente contra os `deliverables`, `sensors_required`, `acceptance_criteria` e `preconditions` do phase contract. Sprints são sub-granularidade operacional e não afetam o veredicto — mesmo se um sprint estiver em `failed`, o phase contract pode continuar `ON_TRACK` se os deliverables da fase estiverem no caminho.
 
+## Behaviours runtime (aparece apenas se o contrato declara AC com verifiable_by: "behaviour")
+
+- **Last run at:** [finished_at do behaviours-last-run.json ou "(ausente)"]
+- **Global stale:** [não | sim — motivo: `behaviours.json` modificado em X / phase contract aprovado em Y após finished_at]
+
+| AC ID | Behaviour ID | Binding | Status runtime | on_fail | Evidência |
+|-------|--------------|---------|----------------|---------|-----------|
+| ... | ... | ... | ... | ... | ... |
+
+**Observação:** os status `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` e `BINDING_GAP` rebaixam o veredicto via R2.1. Os status `NOT_RUN`, `UNSTABLE` e `STALE` rebaixam via R5.1. `FAIL_WARN` rebaixa via R6.1. Consumers nunca tratam `STALE` como `PASS` — staleness exige re-execução humana de `/behaviour-run`.
+
 ## Aviso de staleness (se aplicável)
 
 - [tipo] — [descrição]
@@ -316,19 +388,26 @@ Resumo: X required PASS / Y required FAIL / Z opcionais MISSING
 
 ## Regras
 
-1. **Read-only absoluto.** `/contract-check` nunca escreve em `.claude/runtime/contracts/*`, nunca modifica `execution-ledger.md`, nunca atualiza `active.json`. A única saída é o relatório ao usuário.
-2. **Sensores são autoridade sobre comportamento mecânico.** Se o contrato diz `sensors_required: ["unit-tests"]` e o sensor está `FAIL_BLOCKING`, o veredicto não pode ser `READY_TO_CLOSE`. Mesmo que todos os outros deliverables estejam `PASS`.
-3. **Agregação é determinística.** A tabela de regras R1–R10 é aplicada na ordem; a primeira que casa decide. Não há heurística probabilística.
-4. **Manual check nunca vira automático.** `MANUAL_CHECK` é um estado terminal até confirmação humana — o command apenas reporta, nunca assume.
-5. **Deliverable com `INVALID_SENSOR_REF` é FAIL.** Contrato que referencia sensor inexistente é inválido por construção e deve ser tratado como falha crítica — não ignorado.
-6. **Staleness não bloqueia.** O command roda mesmo com contrato stale; apenas avisa. A decisão de atualizar evidência é humana.
-7. **Contrato em `draft` não é verificado.** `/contract-check` exige aprovação explícita do contrato antes de operar — senão está validando uma promessa ainda não comprometida.
+1. **Read-only absoluto.** `/contract-check` nunca escreve em `.claude/runtime/contracts/*`, nunca modifica `execution-ledger.md`, nunca atualiza `active.json`, nunca dispara `/sensors-run` ou `/behaviour-run`. A única saída é o relatório ao usuário.
+2. **Sensores são autoridade sobre comportamento mecânico estático.** Se o contrato diz `sensors_required: ["unit-tests"]` e o sensor está `FAIL_BLOCKING`, o veredicto não pode ser `READY_TO_CLOSE`. Mesmo que todos os outros deliverables estejam `PASS`.
+3. **Behaviours são autoridade sobre runtime observável.** Se um AC declara `verifiable_by: "behaviour"` e o behaviour está `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` ou `BINDING_GAP`, o veredicto é `FAILED` via R2.1 — o runtime não confirma o critério de aceite.
+4. **Staleness de behaviours nunca vira PASS.** Behaviours em estado `STALE` são rebaixados via R5.1 mesmo que o último resultado gravado tenha sido `pass`. A única recuperação é re-executar `/behaviour-run` manualmente.
+5. **Binding bidirecional é obrigatório para behaviours.** AC com `verifiable_by: "behaviour"` exige `behaviour_id` declarado, e o behaviour correspondente em `behaviours.json` deve ter `contract_ref` de volta para o AC e `phase_id` do contrato atual. Binding de mão única é `BINDING_GAP` e rebaixa via R2.1.
+6. **Agregação é determinística.** A tabela de regras R1–R10 (com sub-regras R2.1, R5.1, R6.1) é aplicada na ordem; a primeira que casa decide. Não há heurística probabilística.
+7. **Manual check nunca vira automático.** `MANUAL_CHECK` é um estado terminal até confirmação humana — o command apenas reporta, nunca assume.
+8. **Deliverable com `INVALID_SENSOR_REF` é FAIL.** Contrato que referencia sensor inexistente é inválido por construção e deve ser tratado como falha crítica — não ignorado. O mesmo princípio aplica-se a `INVALID_BEHAVIOUR_REF`.
+9. **Staleness não bloqueia o command.** O command roda mesmo com contrato/sensores/behaviours stale; apenas reporta e rebaixa o veredicto quando apropriado. A decisão de atualizar evidência ou re-executar é humana.
+10. **Contrato em `draft` não é verificado.** `/contract-check` exige aprovação explícita do contrato antes de operar — senão está validando uma promessa ainda não comprometida.
 
 ## Anti-padrões
 
 - **Modificar o contrato "só para atualizar evidência"** durante o `/contract-check` — qualquer modificação invalida a semântica read-only e abre porta para moving-the-goalposts silencioso
 - **Promover um deliverable para `PASS` com base em análise textual do código** quando o `verifiable_by` declarado é `sensor` e o sensor falhou — contrato diz sensor, sensor é autoridade
+- **Tratar um AC com `verifiable_by: "behaviour"` como `PASS` por análise de código** quando o behaviour correspondente falhou, nunca foi executado ou está stale — o runtime é autoridade sobre comportamento observável
+- **Disparar `/behaviour-run` automaticamente dentro do `/contract-check`** para "resolver" staleness ou NOT_RUN — o command é read-only absoluto e nunca executa behaviours
+- **Aceitar `STALE` como equivalente a `PASS` "porque o último run passou"** — staleness significa que o run não representa mais o estado atual; consumers nunca reinterpretam
+- **Ignorar `BINDING_GAP` "porque o behaviour existe"** — binding de mão única indica declaração inconsistente entre behaviour e contrato; a correção é manual
 - **Tratar `MANUAL_CHECK` como `PASS` "porque provavelmente está ok"** — manual check só vira PASS com ação humana explícita
-- **Veredicto `READY_TO_CLOSE` com `sensors_required` vazio ou `NOT_RUN`** — se nenhum sensor rodou, não há evidência mecânica suficiente para fechar
+- **Veredicto `READY_TO_CLOSE` com `sensors_required` vazio ou `NOT_RUN`, ou com ACs-behaviour ainda em `NOT_RUN`** — se nenhum sensor ou behaviour rodou, não há evidência mecânica suficiente para fechar
 - **Ignorar contratos em `draft` silenciosamente** — avisar explicitamente que o contrato não foi aprovado e o gate contratual está ausente
 - **Rodar `/contract-check` sem contrato ativo e falhar silenciosamente** — reportar explicitamente que não há contrato ativo e explicar que projetos sem contratos operam em modo degradado
