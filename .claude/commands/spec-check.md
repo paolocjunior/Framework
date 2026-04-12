@@ -102,10 +102,12 @@ Se nenhum item se enquadra nos critérios normativos, colapsar em: `✓ Nenhum b
 ### 3. Ambiguities
 
 Itens com múltiplas interpretações plausíveis que não bloqueiam mas exigem decisão. Cada item com:
-- **Localização:** arquivo e seção
-- **Interpretações possíveis:** listar as variantes
-- **Risco:** o que acontece se escolher errado
+- **Localização:** arquivo e seção exata
+- **Evidência:** trecho da spec que gera a ambiguidade
+- **Interpretações possíveis:** listar as variantes plausíveis
+- **Impacto:** o que acontece se escolher a interpretação errada
 - **Severidade:** ALTO / MÉDIO / BAIXO
+- **Correção mínima:** como resolver (preferir clarificação que feche a ambiguidade sem expandir escopo)
 
 Se nenhum encontrado: `✓ Nenhuma ambiguidade material encontrada.`
 
