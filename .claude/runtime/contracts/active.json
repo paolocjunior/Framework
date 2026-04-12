@@ -1,0 +1,6 @@
+{
+  "_comment": "Ponteiro para o phase contract ativo. Apenas uma fase por vez pode estar ativa. Atualizado por /contract-create ao aprovar e transicionado manualmente ao fechar fase. Se active_phase_id for null, nenhuma fase esta ativa. Ver .claude/rules/execution-contracts.md.",
+  "active_phase_id": null,
+  "active_contract_path": null,
+  "last_updated": null
+}

@@ -15,7 +15,7 @@ Ler `.claude/runtime/execution-ledger.md` e reportar o estado atual do projeto d
 6. Itens abertos mais antigos (verificar Last Updated)
 7. Padrões aprovados no pattern registry (ler `.claude/runtime/pattern-registry.md` se existir)
 8. Padrões `deprecated` que ainda podem estar em uso no código
-9. Resumo da última sessão (ler `.claude/runtime/session-summaries/latest.md` se existir)
+9. Resumo da última sessão (ler `.claude/runtime/session-summaries/latest.md` se existir — segue formato de handoff operacional com 6 seções estruturadas: onde estamos, o que está ativo, o que acabou de acontecer, o que falta fazer, o que bloqueia, fonte de verdade)
 10. Próxima ação recomendada com base no estado atual
 
 ## Formato de Saída
@@ -49,7 +49,7 @@ Ler `.claude/runtime/execution-ledger.md` e reportar o estado atual do projeto d
 (lista de padrões approved do pattern-registry com ID, decisão e escopo)
 
 ### Last Session Summary
-(resumo da última sessão se latest.md existir, ou "Nenhum resumo de sessão encontrado")
+(citar seções 1-3 do handoff de latest.md: onde estamos, o que está ativo, o que acabou de acontecer. Se latest.md não existir, reportar "Nenhum resumo de sessão encontrado")
 
 ### Next Recommended Action
 (o que deveria ser feito agora, baseado no estado do ledger)
