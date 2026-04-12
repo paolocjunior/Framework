@@ -101,7 +101,7 @@ get_where_we_are() {
         return
     fi
     local block
-    block=$(extract_section "$LEDGER" "Current Status" | grep -E '^- ' || true)
+    block=$(extract_section "$LEDGER" "Current Status" | grep -E '^- ' | grep -vi 'last updated' || true)
     if [ -z "$block" ]; then
         echo "projeto sem estado previo (ledger vazio)"
         return
@@ -206,8 +206,11 @@ BLOCKERS=$(get_blockers)
 # Padrao: escrever em arquivo auxiliar no mesmo diretorio e renomear via mv.
 # rename(2) e atomico por contrato POSIX dentro do mesmo filesystem, entao
 # consumidores (ex: /status-check) nunca observam latest.md parcial ou
-# truncado, mesmo se o hook for interrompido (SIGKILL, disk full, OOM) no
-# meio do heredoc. O trap garante limpeza do .tmp se o cat falhar antes do mv.
+# truncado — mesmo que o processo morra no meio do heredoc, latest.md
+# permanece intacto (o mv ainda nao ocorreu).
+# O trap EXIT limpa o .tmp em caso de erro normal ou exit. Em SIGKILL o
+# trap nao roda e o .tmp pode ficar orfao — inofensivo, sera sobrescrito
+# na proxima sessao.
 
 TMP_FILE="${SUMMARY_FILE}.tmp.$$"
 trap 'rm -f "$TMP_FILE"' EXIT
