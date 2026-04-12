@@ -202,8 +202,17 @@ OPEN_ITEMS=$(get_open_items)
 BLOCKERS=$(get_blockers)
 
 # ---- Escrever handoff (overwrite atomico) ----
+#
+# Padrao: escrever em arquivo auxiliar no mesmo diretorio e renomear via mv.
+# rename(2) e atomico por contrato POSIX dentro do mesmo filesystem, entao
+# consumidores (ex: /status-check) nunca observam latest.md parcial ou
+# truncado, mesmo se o hook for interrompido (SIGKILL, disk full, OOM) no
+# meio do heredoc. O trap garante limpeza do .tmp se o cat falhar antes do mv.
 
-cat > "$SUMMARY_FILE" << EOF
+TMP_FILE="${SUMMARY_FILE}.tmp.$$"
+trap 'rm -f "$TMP_FILE"' EXIT
+
+cat > "$TMP_FILE" << EOF
 # Session Handoff — ${TIMESTAMP}
 
 **Session ID:** ${SESSION_ID}
@@ -242,6 +251,12 @@ Hierarquia de verdade (ver \`.claude/rules/state-sync.md\`):
 
 **Regra:** este handoff e subordinado ao trio. Em caso de divergencia, o ledger prevalece. Este arquivo e sobrescrito a cada Stop e nao e fonte de verdade para decisao alguma.
 EOF
+
+# Rename atomico: substitui latest.md pelo tmp. Se mv falhar, set -e propaga
+# o erro e o trap EXIT limpa o tmp. Se mv suceder, limpar o trap para nao
+# tentar remover um arquivo que ja nao existe mais.
+mv "$TMP_FILE" "$SUMMARY_FILE"
+trap - EXIT
 
 # Stop hooks nao emitem systemMessage no stdout — sair limpo.
 exit 0
