@@ -55,6 +55,7 @@ O arquivo vive em `.claude/runtime/capability-gaps.json`. E versionado no Git co
   "gaps": [
     {
       "id": "string (unico, kebab-case, ex: 'gap-01-no-sensors')",
+      "identity_key": "string (chave deterministica de merge — identifica univocamente a ocorrencia do gap)",
       "type": "declaration_absent | never_run | stale | binding_gap | native_uncovered",
       "category": "sensors | behaviours | linters | contracts | knowledge_base | pen_test | e2e | accessibility | ci_cd | dep_scan | performance | diagrams",
       "description": "string (human-readable, curta)",
@@ -75,7 +76,7 @@ O arquivo vive em `.claude/runtime/capability-gaps.json`. E versionado no Git co
 
 ### Campos obrigatorios por gap
 
-- `id`, `type`, `category`, `description`, `severity`
+- `id`, `identity_key`, `type`, `category`, `description`, `severity`
 - `detected_by`, `first_detected_at`, `last_seen_at`
 - `evidence`, `source_artifacts`
 - `status`
@@ -85,6 +86,28 @@ O arquivo vive em `.claude/runtime/capability-gaps.json`. E versionado no Git co
 - `resolution` — preenchido quando `status` transiciona para `filled`
 - `resolution_at` — preenchido quando `status` transiciona para `accepted`, `filled` ou `deferred`
 - `resolution_justification` — obrigatorio para `accepted` e `deferred`, opcional para `filled`
+
+### `identity_key` — chave de merge do scanner
+
+O campo `identity_key` e a chave deterministica que o scanner usa para decidir se um gap detectado e novo ou ja existe no registro. Diferente de `id` (que e identificador externo visivel, humano, versionavel), `identity_key` e chave interna de deduplicacao gerada automaticamente pelo scanner.
+
+**Por que nao usar `type + category`:** a combinacao `type + category` e insuficiente como chave de unicidade. Um projeto pode ter multiplos `binding_gap` na categoria `behaviours` (AC1 sem behaviour_id, AC2 apontando para behaviour inexistente, behaviour b-03 sem contract_ref de volta). Usar `type + category` colapsaria essas ocorrencias distintas em um unico registro, perdendo granularidade.
+
+**Regras de geracao por tipo:**
+
+| Tipo | Formato do `identity_key` | Exemplo |
+|---|---|---|
+| `declaration_absent` | `declaration_absent:<category>` | `declaration_absent:sensors` |
+| `never_run` | `never_run:<category>` | `never_run:behaviours` |
+| `stale` | `stale:<category>` | `stale:linters` |
+| `binding_gap` | `binding_gap:<source_artifact>:<source_ref>:<target_ref>` | `binding_gap:phase-01:AC1:b-01-login-success` |
+| `native_uncovered` | `native_uncovered:<heuristic_id>` | `native_uncovered:H3` |
+
+**Propriedades da `identity_key`:**
+- **Deterministica:** a mesma condicao detectada em scans diferentes gera a mesma `identity_key`
+- **Estavel:** renomear o `id` humano nao afeta o merge — a `identity_key` permanece
+- **Granular:** cada ocorrencia distinta de gap tem `identity_key` distinta, mesmo compartilhando `type` e `category`
+- **Gerada pelo scanner:** o humano nao edita `identity_key`. E campo de infraestrutura do merge, nao de apresentacao
 
 ## Lifecycle e ownership
 
@@ -106,13 +129,13 @@ open → acknowledged → accepted
 
 ### Regras de merge scanner × humano
 
-O `/gaps-scan` roda multiplas vezes ao longo do projeto. A cada execucao, precisa conciliar gaps detectados com gaps ja existentes no registro:
+O `/gaps-scan` roda multiplas vezes ao longo do projeto. A cada execucao, precisa conciliar gaps detectados com gaps ja existentes no registro. O merge usa `identity_key` como chave de deduplicacao — nao `type + category`, que e insuficiente para gaps com multiplas ocorrencias (ver secao "identity_key"):
 
-1. **Gap novo detectado** (id nao existe em `capability-gaps.json`): scanner cria entrada com `status: "open"`, `first_detected_at` e `last_seen_at` iguais ao timestamp atual.
-2. **Gap existente com `status: "open"`**: scanner atualiza `last_seen_at`, `evidence`, `severity` e `source_artifacts`. Pode mudar `severity` se a condicao mudou.
-3. **Gap existente com status humano** (`acknowledged`, `accepted`, `filled`, `deferred`): scanner atualiza **apenas** `last_seen_at` e `evidence`. **Nunca** sobrescreve `status`, `resolution`, `resolution_justification` ou `severity`.
-4. **Gap existente mas nao detectado no scan atual**: scanner **nao remove** o gap. Adiciona campo `last_seen_at` inalterado (preserva ultima deteccao). Gap pode ter sido resolvido ou pode estar fora do escopo do scan.
-5. **Gap com `status: "filled"` e scanner re-detecta a condicao**: scanner **nao reabre** o gap. Cria **novo gap** com id incrementado (ex: `gap-01-no-sensors-v2`) e `status: "open"`. Justificativa: o humano declarou o gap preenchido — se a condicao reapareceu, e uma nova ocorrencia, nao regressao automatica.
+1. **Gap novo detectado** (nenhum gap existente com mesma `identity_key`): scanner cria entrada com `status: "open"`, `first_detected_at` e `last_seen_at` iguais ao timestamp atual.
+2. **Gap existente com `status: "open"` (mesma `identity_key`)**: scanner atualiza `last_seen_at`, `evidence`, `severity` e `source_artifacts`. Preserva `first_detected_at` e `id`.
+3. **Gap existente com status humano** (`acknowledged`, `accepted`, `filled`, `deferred`) **(mesma `identity_key`)**: scanner atualiza **apenas** `last_seen_at` e `evidence`. **Nunca** sobrescreve `status`, `resolution`, `resolution_justification` ou `severity`.
+4. **Gap existente mas nao detectado no scan atual**: scanner **nao remove** o gap. Preserva `last_seen_at` inalterado (ultima deteccao). Gap pode ter sido resolvido ou pode estar fora do escopo do scan.
+5. **Gap com `status: "filled"` e scanner re-detecta a condicao (mesma `identity_key`)**: scanner **nao reabre** o gap. Cria **novo gap** com id incrementado (ex: `gap-01-no-sensors-v2`), `identity_key` versionada (ex: sufixo `:v2`) e `status: "open"`. O gap `filled` anterior permanece intacto.
 
 ### Vedacao de ownership
 

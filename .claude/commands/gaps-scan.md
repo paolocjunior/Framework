@@ -52,11 +52,12 @@ Verificar existencia de cada camada de verificacao do framework:
 
 Para cada camada ausente, emitir gap:
 - `type`: `declaration_absent`
+- `identity_key`: `declaration_absent:<category>` (ex: `declaration_absent:sensors`)
 - `severity`: `high` para sensores (build/test/lint nao verificados mecanicamente), `medium` para as demais
 - `evidence`: `"<arquivo> ausente no path .claude/runtime/"`
 - `source_artifacts`: `[".claude/runtime/"]`
 
-Se o arquivo de declaracao existe mas esta vazio ou sem itens `enabled: true`, emitir gap com `description` ajustada: "Declaracao existe mas nenhum item habilitado".
+Se o arquivo de declaracao existe mas esta vazio ou sem itens `enabled: true`, emitir gap com `description` ajustada: "Declaracao existe mas nenhum item habilitado". A `identity_key` permanece a mesma (`declaration_absent:<category>`).
 
 ### Passo 4 — Detectar gaps tipo `never_run`
 
@@ -70,6 +71,7 @@ Para cada camada que tem declaracao presente (Passo 3 nao emitiu `declaration_ab
 
 Para cada resultado ausente, emitir gap:
 - `type`: `never_run`
+- `identity_key`: `never_run:<category>` (ex: `never_run:sensors`)
 - `severity`: `high` se a camada tem itens com `on_fail: block` / `severity: block`, `medium` caso contrario
 - `evidence`: `"<declaracao> existe com N itens enabled, mas <resultado> ausente"`
 - `source_artifacts`: `["<declaracao>"]`
@@ -94,6 +96,7 @@ Para cada camada que tem declaracao E resultado (Passos 3 e 4 nao emitiram gap),
 
 Para cada camada stale, emitir gap:
 - `type`: `stale`
+- `identity_key`: `stale:<category>` (ex: `stale:sensors`)
 - `severity`: `low`
 - `evidence`: motivo da staleness (ex: `"sensors.json mtime 2026-04-12 > sensors-last-run finished_at 2026-04-10"`)
 - `source_artifacts`: `["<declaracao>", "<resultado>"]`
@@ -112,6 +115,11 @@ Verificar vinculacao bidirecional entre contratos e behaviours (se ambos existem
 
 Para cada binding gap, emitir:
 - `type`: `binding_gap`
+- `identity_key`: `binding_gap:<phase_id>:<ac_id>:<behaviour_id_or_missing>` — a chave identifica univocamente cada vinculo quebrado. Exemplos:
+  - AC sem `behaviour_id`: `binding_gap:phase-01:AC1:missing_behaviour_id`
+  - `behaviour_id` aponta para behaviour inexistente: `binding_gap:phase-01:AC1:b-99-nonexistent`
+  - Behaviour sem `contract_ref` de volta: `binding_gap:phase-01:AC1:b-01-no-back-ref`
+  - Behaviour com `contract_ref` apontando para AC inexistente: `binding_gap:phase-01:AC99:b-01-orphan-ref`
 - `severity`: `medium`
 - `evidence`: descricao do vinculo quebrado (ex: `"AC1 declara verifiable_by:behaviour com behaviour_id:b-01, mas b-01 nao tem contract_ref:AC1"`)
 - `source_artifacts`: paths do contrato e do behaviours.json
@@ -122,43 +130,43 @@ Executar **apenas** as heuristicas da lista fechada documentada em `.claude/rule
 
 **H1 — Ausencia de scan de vulnerabilidades em dependencias:**
 - Condicao: projeto tem `package.json` (ou `requirements.txt`, `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`) com dependencias + nenhum sensor com `type: "security-scan"` declarado em `sensors.json`
-- Gap: `category: "dep_scan"`, `severity: "medium"`
+- Gap: `category: "dep_scan"`, `severity: "medium"`, `identity_key: "native_uncovered:H1"`
 
 **H2 — Ausencia de verificacao de acessibilidade:**
 - Condicao: projeto tem arquivos `.html`, `.jsx`, `.tsx` + nenhum sensor ou behaviour que referencia "accessibility", "a11y", "wcag" em description ou id
-- Gap: `category: "accessibility"`, `severity: "medium"`
+- Gap: `category: "accessibility"`, `severity: "medium"`, `identity_key: "native_uncovered:H2"`
 
 **H3 — Ausencia de pen test ou teste de integracao HTTP:**
 - Condicao: projeto tem endpoints HTTP (detectavel por presenca de `express`, `fastify`, `flask`, `django`, `gin`, `actix`, `axum`, `net/http`, `fiber` em codigo-fonte) + nenhum behaviour com `type: "http"` e `on_fail: "block"` que referencia endpoint real
-- Gap: `category: "pen_test"`, `severity: "high"`
+- Gap: `category: "pen_test"`, `severity: "high"`, `identity_key: "native_uncovered:H3"`
 
 **H4 — Ausencia de metricas de performance frontend:**
 - Condicao: projeto tem UI (detectavel por presenca de componentes React/Vue/Svelte/Angular/HTML significativos) + nenhum sensor que referencia "performance", "lighthouse", "vitals" em description ou id
-- Gap: `category: "performance"`, `severity: "medium"`
+- Gap: `category: "performance"`, `severity: "medium"`, `identity_key: "native_uncovered:H4"`
 
 **H5 — Ausencia de testes E2E com browser:**
 - Condicao: projeto tem testes unitarios (sensor `type: "test"` presente) mas nenhum sensor ou behaviour com id/description referenciando "playwright", "cypress", "selenium", "e2e", "puppeteer"
-- Gap: `category: "e2e"`, `severity: "medium"`
+- Gap: `category: "e2e"`, `severity: "medium"`, `identity_key: "native_uncovered:H5"`
 
 **H6 — Ausencia de quality gates em CI/CD:**
 - Condicao: nenhum dos seguintes existe: `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, `.circleci/`, `bitbucket-pipelines.yml`
-- Gap: `category: "ci_cd"`, `severity: "medium"`
+- Gap: `category: "ci_cd"`, `severity: "medium"`, `identity_key: "native_uncovered:H6"`
 
 **Regra:** se nenhuma heuristica casa, nenhum `native_uncovered` e emitido. O scanner nao improvisa.
 
 ### Passo 8 — Aplicar merge rules
 
-Para cada gap detectado nos Passos 3-7, aplicar as 5 regras de merge de `.claude/rules/capability-gaps.md`:
+Para cada gap detectado nos Passos 3-7, aplicar as 5 regras de merge de `.claude/rules/capability-gaps.md`. O merge usa `identity_key` como chave de deduplicacao — **nao** `type + category`, que e insuficiente para gaps com multiplas ocorrencias (ex: multiplos `binding_gap` na mesma categoria):
 
-1. **Gap novo** (nenhum gap existente com mesmo `type` + `category`): criar com `status: "open"`, `first_detected_at` e `last_seen_at` = timestamp atual, `detected_by: "/gaps-scan"`.
+1. **Gap novo** (nenhum gap existente com mesma `identity_key`): criar com `status: "open"`, `first_detected_at` e `last_seen_at` = timestamp atual, `detected_by: "/gaps-scan"`.
 
-2. **Gap existente com `status: "open"`**: atualizar `last_seen_at`, `evidence`, `severity`, `source_artifacts`. Preservar `first_detected_at` e `id`.
+2. **Gap existente com `status: "open"` (mesma `identity_key`)**: atualizar `last_seen_at`, `evidence`, `severity`, `source_artifacts`. Preservar `first_detected_at` e `id`.
 
-3. **Gap existente com status humano** (`acknowledged`, `accepted`, `filled`, `deferred`): atualizar **apenas** `last_seen_at` e `evidence`. **NUNCA** sobrescrever `status`, `resolution`, `resolution_justification`, `severity`.
+3. **Gap existente com status humano (mesma `identity_key`)** (`acknowledged`, `accepted`, `filled`, `deferred`): atualizar **apenas** `last_seen_at` e `evidence`. **NUNCA** sobrescrever `status`, `resolution`, `resolution_justification`, `severity`.
 
 4. **Gap existente nao detectado neste scan**: preservar intacto. Nao remover.
 
-5. **Gap `filled` re-detectado**: criar **novo gap** com id versionado (ex: `gap-01-no-sensors-v2`), `status: "open"`. O gap `filled` anterior permanece intacto.
+5. **Gap `filled` re-detectado (mesma `identity_key`)**: criar **novo gap** com id versionado (ex: `gap-01-no-sensors-v2`), `identity_key` versionada (ex: sufixo `:v2`), `status: "open"`. O gap `filled` anterior permanece intacto.
 
 ### Passo 9 — Gerar IDs para gaps novos
 
