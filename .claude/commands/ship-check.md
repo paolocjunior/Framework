@@ -20,7 +20,7 @@ Realizar verificação pré-entrega do projeto, avaliando se está pronto para d
 
 Os comandos e ferramentas de verificação devem ser adaptados à stack do projeto (ex.: npm/yarn/pnpm/bun, pip/pytest, cargo, gradle/gradlew, xcodebuild/swift, dotnet, cmake/make, go, unity/godot export pipeline). Os itens da checklist são universais; os comandos específicos variam por tecnologia.
 
-A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por três camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), e behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10) e expected-vs-actual runtime.
+A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por quatro camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7), e architecture linters cross-file (`.claude/rules/architecture-linters.md` — Bloco 0.8). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10), expected-vs-actual runtime e verificação estrutural cross-file.
 
 ---
 
@@ -246,6 +246,77 @@ Este bloco **nunca modifica** nada:
 
 ---
 
+## Bloco 0.8 — Architecture linters (gate estrutural)
+
+Apos consumir sensores (Bloco 0), contrato de execucao (Bloco 0.5), sprints informativos (Bloco 0.6) e behaviours runtime (Bloco 0.7), o ship-check **deve consumir o veredicto estruturado de architecture linters**, quando existirem. Architecture linters validam **invariantes arquiteturais cross-file** — regras estruturais que nenhuma ferramenta nativa de lint/test cobre porque operam em escopo de arquivo unico. Ver `.claude/rules/architecture-linters.md` para o protocolo completo.
+
+Este bloco e **paralelo e independente** dos Blocos 0 e 0.7: sensores validam codigo estatico (compila/testa/lint), behaviours validam runtime observavel, architecture linters validam estrutura cross-file. As tres camadas sao autoritativas em seus respectivos dominios.
+
+### Passo 0.8.1 — Verificar existencia de `architecture-linters.json`
+
+Ler `.claude/runtime/architecture-linters.json`:
+
+- **Ausente** → projeto nao declara architecture linters. Registrar como **lacuna informativa** no output (recomendacao opcional: "Copiar `architecture-linters.template.json` para `architecture-linters.json` e declarar invariantes arquiteturais do projeto"). **Nao bloqueia `PRONTO`** — architecture linters sao opt-in. Seguir para Bloco A.
+- **Presente** → seguir para Passo 0.8.2.
+
+### Passo 0.8.2 — Verificar existencia e frescor de `architecture-linters-last-run.json`
+
+Ler `.claude/runtime/architecture-linters-last-run.json`:
+
+- **Ausente** → linters declarados mas nunca executados. Registrar no output como "Architecture linters declarados (N) mas nunca executados via `/lint-architecture`". **Rebaixar `PRONTO` para `PRONTO COM RESSALVAS`** — o projeto declarou gate estrutural mas nao rodou. Este command **nunca** invoca `/lint-architecture` automaticamente (read-only absoluto).
+- **Presente** → validar schema via `jq empty`. Se invalido, reportar como lacuna equivalente a ausente.
+
+### Passo 0.8.3 — Detectar staleness
+
+Aplicar as 4 regras de staleness de `.claude/rules/architecture-linters.md`:
+
+1. **Staleness por declaracao:** se `mtime(architecture-linters.json) > finished_at` do last-run → stale (declaracao mudou apos a execucao).
+2. **Staleness por codigo:** se arquivos potencialmente cobertos pelo linter mudaram apos `finished_at`. Para `scope: global` → arquivos-fonte relevantes; para `scope: phase` → arquivos associados ao `phase_id`. Quando a delimitacao e impossivel, usar regra conservadora e reportar como tal.
+3. **Staleness por contrato:** se o phase contract ativo foi aprovado/modificado apos `finished_at` (aplicavel a linters `scope: phase`).
+4. **Staleness especifica:** se algum linter com `enabled: true` nao aparece em `results[]` do last-run.
+
+Staleness nunca e tratada como `PASS`.
+
+### Passo 0.8.4 — Mapear resultados ao ship-check
+
+Neste bloco, **`severity` governa o impacto operacional**:
+
+| Campo do last-run | Interpretacao no ship-check |
+|---|---|
+| `verdict: PASS` | Todos os linters executados passaram (ou falhas tem `severity: warn`) |
+| `verdict: FAIL` | Pelo menos 1 linter falhou com `severity: block` |
+| `verdict: PARTIAL` | Algum linter foi pulado (ex: `--offline` quando requires network) e os executados passaram |
+| `verdict: NO_LINTERS` | Arquivo presente mas vazio — equivalente a lacuna |
+| `blocking_failures > 0` | **Forca `NAO PRONTO` incondicionalmente** — invariante arquitetural violado |
+
+### Passo 0.8.5 — Gate bloqueante
+
+Se `architecture-linters-last-run.json` reporta `blocking_failures > 0`, o ship-check **NAO pode reportar PRONTO**, independente de qualquer outro sinal. Rebaixar imediatamente para `NAO PRONTO` e listar os linters que falharam (com `linter_id`, `exit_code`, `output_tail`) como bloqueadores.
+
+**Razao:** principio de architecture linters e que o exit code do comando e autoritativo sobre a conformidade estrutural. Se o agente concluisse PRONTO contra um linter reportando violacao de layering, o framework estaria voltando ao modelo self-evaluation.
+
+### Passo 0.8.6 — Gate de ressalva (staleness e PARTIAL)
+
+Se qualquer uma das condicoes abaixo e verdadeira, rebaixar `PRONTO` → `PRONTO COM RESSALVAS` (nao forca `NAO PRONTO` por si so):
+
+- `architecture-linters-last-run.json` em `verdict: PARTIAL` (linters pulados)
+- Staleness detectada (qualquer criterio)
+- `architecture-linters-last-run.json` ausente mas `architecture-linters.json` declara linters `enabled: true`
+- Algum linter tem `severity: warn` em `fail` (nao bloqueante mas risco registrado)
+
+### Passo 0.8.7 — Regra de read-only absoluto
+
+Este bloco **nunca modifica** nada:
+- Nao edita `architecture-linters.json`
+- Nao edita `architecture-linters-last-run.json`
+- Nao invoca `/lint-architecture` (nem quando ausente, nem quando stale)
+- Nao escreve no ledger diretamente (a atualizacao do ledger no final do ship-check pode citar linters como evidencia, mas o Bloco 0.8 em si e read-only)
+- Nao modifica phase contract nem `active.json`
+
+**Principio:** rodar `/ship-check` multiplas vezes contra o mesmo estado sempre retorna o mesmo veredicto.
+
+---
+
 ## Bloco A — Release Viability
 
 Verifica se o projeto **compila, funciona e não está quebrado**. Itens deste bloco são **bloqueantes** — falha aqui significa que o projeto não está pronto.
@@ -436,7 +507,47 @@ Se os behaviours estão declarados mas nunca foram executados:
 - Observação: ship-check é read-only e **não** invoca `/behaviour-run` automaticamente — decisão humana.
 ```
 
-Depois dos Blocos 0, 0.5, 0.6 e 0.7, para cada item dos Blocos A e B, reportar:
+Depois dos behaviours, incluir o sumario de architecture linters (Bloco 0.8):
+
+```markdown
+## Architecture Linters (Bloco 0.8)
+
+- Status: [PASS | FAIL | PARTIAL | NO_LINTERS | NEVER_RUN | STALE]
+- Fonte: `.claude/runtime/architecture-linters-last-run.json` (run_id: <id>, finished_at: <timestamp>)
+- Declarados: N | Executados: X | Passaram: Y | Falharam: Z | Bloqueantes: W
+- Staleness detectada: [nenhuma | por declaracao | por codigo | por contrato | especifica: <linter_ids>]
+
+| Linter ID | Categoria | Status | Exit code | Severity | Evidencia |
+|-----------|-----------|--------|-----------|----------|-----------|
+| `lint-01-no-circular-imports` | circular-deps | PASS | 0 | block | (limpo) |
+| `lint-02-screen-no-direct-infra` | layering | FAIL | 1 | block | src/screens/Home.tsx importa de database |
+
+> Linters em `FAIL` com `severity: block` forcam `NAO PRONTO` (Bloco 0.8 e gate estrutural, analogo ao Bloco 0 gate estatico e Bloco 0.7 gate runtime).
+```
+
+Se o projeto nao declara architecture linters, substituir por:
+
+```markdown
+## Architecture Linters (Bloco 0.8)
+
+- Status: NO_LINTERS (projeto nao declara `architecture-linters.json`)
+- Impacto: Ship-check nao valida invariantes arquiteturais cross-file.
+- Architecture linters sao opt-in — ausencia nao e debito tecnico obrigatorio.
+- Recomendacao opcional: copiar `.claude/runtime/architecture-linters.template.json` para `architecture-linters.json` se o projeto beneficia de verificacao estrutural cross-file.
+```
+
+Se os linters estao declarados mas nunca foram executados:
+
+```markdown
+## Architecture Linters (Bloco 0.8)
+
+- Status: NEVER_RUN (declarados N linters, mas `architecture-linters-last-run.json` ausente)
+- Impacto: Gate estrutural declarado mas nao executado. Rebaixa `PRONTO` → `PRONTO COM RESSALVAS`.
+- Recomendacao: rodar `/lint-architecture` antes da entrega para consumir gate estrutural declarado.
+- Observacao: ship-check e read-only e **nao** invoca `/lint-architecture` automaticamente — decisao humana.
+```
+
+Depois dos Blocos 0, 0.5, 0.6, 0.7 e 0.8, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|
@@ -479,6 +590,7 @@ Com base nos resultados, aplicar regras de rebaixamento na ordem (primeira que c
    - Qualquer bloqueante do Bloco A falhou, OU
    - `sensors-last-run.json` reporta `blocking_failures > 0`, OU
    - `behaviours-last-run.json` reporta `blocking_failures > 0` (Bloco 0.7), OU
+   - `architecture-linters-last-run.json` reporta `blocking_failures > 0` (Bloco 0.8), OU
    - Contrato ativo (Bloco 0.5) está em `FAILED`, `failed`, `rolled_back` ou `deferred`, OU
    - `risk-assessment` reportou `BLOCKING_RISK`
 
@@ -491,17 +603,22 @@ Com base nos resultados, aplicar regras de rebaixamento na ordem (primeira que c
    - `behaviours-last-run.json` em `PARTIAL` (behaviours pulados), OU
    - `behaviours-last-run.json` ausente mas `behaviours.json` declara behaviours `enabled: true` (NEVER_RUN), OU
    - Staleness de behaviours detectada (global por declaração/contrato ou específica), OU
-   - Algum behaviour em `fail` com `on_fail: warn` (não bloqueante, mas risco registrado)
+   - Algum behaviour em `fail` com `on_fail: warn` (não bloqueante, mas risco registrado), OU
+   - `architecture-linters-last-run.json` em `PARTIAL` (linters pulados), OU
+   - `architecture-linters-last-run.json` ausente mas `architecture-linters.json` declara linters `enabled: true`, OU
+   - Staleness de architecture linters detectada, OU
+   - Algum linter em `fail` com `severity: warn` (não bloqueante, mas risco registrado)
 
 3. **PRONTO** se:
    - Todos os bloqueantes do Bloco A passam, E
    - `sensors-last-run.json` reporta `PASS` (ou lacuna NO_SENSORS com veredicto consciente), E
    - `behaviours-last-run.json` reporta `PASS` fresh (ou lacuna NO_BEHAVIOURS — behaviours são opt-in), E
+   - `architecture-linters-last-run.json` reporta `PASS` fresh (ou lacuna NO_LINTERS — linters são opt-in), E
    - Contrato ativo (Bloco 0.5) está em `READY_TO_CLOSE` ou já `done`, E
    - Recomendações do Bloco B sem risco alto, E
    - `risk-assessment` em `LOW_RISK`
 
-**Princípio de autoridade paralela:** sensores (Bloco 0) e behaviours (Bloco 0.7) são gates paralelos e independentes. Ambos podem forçar `NÃO PRONTO` se reportarem `blocking_failures > 0`. Falha em um não mascara o outro — ambos devem passar (ou ser ausentes conscientemente) para o ship passar.
+**Princípio de autoridade paralela:** sensores (Bloco 0), behaviours (Bloco 0.7) e architecture linters (Bloco 0.8) são gates paralelos e independentes. Todos podem forçar `NÃO PRONTO` se reportarem `blocking_failures > 0`. Falha em um não mascara os outros — todos devem passar (ou ser ausentes conscientemente) para o ship passar.
 
 Incluir no output:
 - Lista de bloqueantes que falharam (se houver)
@@ -510,6 +627,7 @@ Incluir no output:
 - Resultado do `risk-assessment` com a matriz de riscos citada
 - Veredicto do contrato ativo do Bloco 0.5 com a regra que decidiu (R1–R10 do `/contract-check`)
 - Behaviours runtime (Bloco 0.7): bloqueantes em fail (se houver), staleness detectada, behaviours em `warn`
+- Architecture linters (Bloco 0.8): bloqueantes em fail (se houver), staleness detectada, linters em `warn`
 
 ---
 

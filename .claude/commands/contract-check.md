@@ -35,6 +35,7 @@ Este é o consumidor primário de `.claude/rules/execution-contracts.md`. Enquan
 - Status do contrato ativo em `approved`, `in_progress`, `done`, `failed` ou `deferred` (contratos em `draft` são ignorados com aviso)
 - (Opcional) `.claude/runtime/sensors-last-run.json` — necessário apenas se o contrato declara `sensors_required`
 - (Opcional) `.claude/runtime/behaviours-last-run.json` — necessário apenas se o contrato declara algum acceptance criterion com `verifiable_by: "behaviour"`
+- (Opcional) `.claude/runtime/architecture-linters-last-run.json` — necessário apenas se o contrato declara `architecture_linters_required` não-vazio
 
 Se não há contrato ativo, o command reporta imediatamente:
 
@@ -260,6 +261,62 @@ Tabela de saída (aparece apenas se o contrato declara AC com `verifiable_by: "b
 | AC3 | `b-03-health-endpoint-json` | OK | STALE | block | run stale: `behaviours.json` modificado em 2026-04-11T10:30, run foi em 2026-04-11T10:00 |
 | AC4 | `b-99-missing` | BINDING_GAP | — | — | behaviour `b-99-missing` não existe em `behaviours-last-run.json` |
 
+### Passo 7.7 — Cruzar com architecture linters (condicional)
+
+Esta verificação aplica-se **apenas** quando o contrato declara `architecture_linters_required` como array não-vazio. Architecture linters são invariantes estruturais cross-file executados por `/lint-architecture` — este command **consome** o resultado e **nunca executa** o `/lint-architecture`. Ver `.claude/rules/architecture-linters.md` para o protocolo completo e `.claude/rules/execution-contracts.md` (subseção "Verificação de invariantes arquiteturais por architecture linters") para as regras de obrigação contratual.
+
+1. **Verificar se o contrato declara `architecture_linters_required` com pelo menos 1 id:**
+   - Se o campo não existe ou é array vazio → pular o Passo 7.7 completamente (sem aviso). A seção correspondente no output não aparece.
+   - Se sim → continuar.
+
+2. **Validar cada id contra `.claude/runtime/architecture-linters.json`:**
+   - Se `architecture-linters.json` não existe → todos os linters required são marcados como `INVALID_LINTER_REF` (o contrato referencia linters mas o projeto não declara linters). Seguir para Passo 8 — o veredicto será `FAILED` via R2.2.
+   - Se existe → para cada id em `architecture_linters_required`:
+     - Se o id não existe em `architecture-linters.json` → `INVALID_LINTER_REF`
+     - Se o id existe mas `enabled: false` → `INVALID_LINTER_REF` (referência a linter desabilitado é binding quebrado)
+     - Se `scope: phase` no linter e `phase_id` do linter não casa com `phase_id` do contrato → `INVALID_LINTER_REF` (scope incompatível)
+
+3. **Ler `.claude/runtime/architecture-linters-last-run.json`:**
+   - Se ausente → todos os linters required (que passaram na validação do passo 2) são marcados como `NOT_RUN`. Adicionar ao output a recomendação: "rodar `/lint-architecture` antes de prosseguir". Seguir para Passo 8 — o veredicto será rebaixado via R5.2.
+   - Se presente → validar via `jq empty`. Se inválido → reportar erro de schema e marcar todos os linters required como `UNSTABLE`.
+
+4. **Para cada linter em `architecture_linters_required` que passou na validação:**
+
+   a. **Localizar o linter em `architecture-linters-last-run.json.results[]` pelo `id`:**
+      - Se o id não aparece em `results[]` → `NOT_RUN` (linter declarado no contrato mas não executado na última run).
+
+   b. **Se encontrado, ler `results[].status`:**
+      - `pass` → `PASS`
+      - `fail` com `severity: block` → `FAIL_BLOCKING`
+      - `fail` com `severity: warn` → `FAIL_WARN`
+      - `timeout` ou `error` → `UNSTABLE`
+      - `skipped` → `NOT_RUN` (pulado por flag `--offline`/`--phase` ou pré-condição não satisfeita)
+
+   c. **Semântica dual (Ajuste 1):** A presença de um linter em `architecture_linters_required[]` torna-o **gate obrigatório independente de `severity`**. Um linter com `severity: warn` que está em `FAIL_WARN` é tratado como `FAIL_BLOCKING` para efeitos de veredicto contratual quando está listado em `architecture_linters_required[]`. A `severity` continua determinando o impacto operacional no `/ship-check`; no `/contract-check`, a obrigação contratual é a autoridade.
+
+5. **Aplicar staleness detection** do `architecture-linters-last-run.json`:
+
+   a. **`architecture-linters.json` foi modificado após `finished_at` do run?** — comparar `mtime` de `.claude/runtime/architecture-linters.json` com `architecture-linters-last-run.json.finished_at`. Se `architecture-linters.json` é mais recente → **stale** (a declaração de linters mudou após a última execução).
+
+   b. **Arquivos potencialmente cobertos pelo linter foram modificados após `finished_at`?** — aplicar a aproximação por scope definida em `.claude/rules/architecture-linters.md` (seção staleness): `scope: global` → verificar se arquivos-fonte relevantes foram modificados; `scope: phase` → verificar apenas arquivos associados ao `phase_id`. Quando a delimitação é impossível, aplicar regra conservadora e reportar como tal.
+
+   c. **Linter com `enabled: true` em `architecture-linters.json` mas ausente em `results[]`?** — cada linter ausente é stale específico.
+
+6. **Aplicar o resultado de staleness:**
+   - **Stale** (regras a ou b) → linters afetados são marcados como `STALE`. Consumers nunca tratam stale como pass. O veredicto é rebaixado via R5.2.
+   - **Stale específico** (regra c) → linters ausentes são marcados como `NOT_RUN`.
+
+7. **Não executar `/lint-architecture`.** O command é read-only absoluto. Staleness e ausência são reportadas ao humano; a decisão de re-executar é humana.
+
+Tabela de saída (aparece apenas se o contrato declara `architecture_linters_required` não-vazio):
+
+| Linter ID | Categoria | Required by contract | Status | Severity | Evidência |
+|-----------|-----------|---------------------|--------|----------|-----------|
+| `lint-01-no-circular-imports` | circular-deps | sim | PASS | block | exit_code=0, 1.2s |
+| `lint-02-screen-no-direct-infra` | layering | sim | FAIL_BLOCKING | block | exit_code=1: `src/screens/Home.tsx` importa de `database` |
+| `lint-03-naming-conventions` | naming | sim | STALE | warn | run stale: `architecture-linters.json` modificado após finished_at |
+| `lint-04-nonexistent` | — | sim | INVALID_LINTER_REF | — | id não encontrado em `architecture-linters.json` |
+
 ### Passo 8 — Agregar veredicto
 
 Aplicar a tabela de agregação **determinística** abaixo. A ordem das regras importa — a primeira regra que casa decide o veredicto.
@@ -269,21 +326,24 @@ Aplicar a tabela de agregação **determinística** abaixo. A ordem das regras i
 | R1 | Qualquer `deliverable.required=true` com status `MISSING`, `MISSING_FILE`, `MISSING_PATTERN`, `EMPTY` ou `INVALID_SENSOR_REF` | **FAILED** |
 | R2 | Qualquer `sensors_required` com status `FAIL_BLOCKING` ou `INVALID_SENSOR_REF` | **FAILED** |
 | R2.1 | Qualquer AC com `verifiable_by: "behaviour"` em status `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` ou `BINDING_GAP` | **FAILED** |
+| R2.2 | Qualquer linter em `architecture_linters_required` em status `FAIL_BLOCKING` (inclui `FAIL_WARN` promovido por obrigação contratual) ou `INVALID_LINTER_REF` | **FAILED** |
 | R3 | Qualquer `deliverable.required=true` com status `FAIL` (de sensor) | **FAILED** |
 | R4 | Qualquer precondition `FAIL` (mecanicamente verificável) | **FAILED** |
 | R5 | Qualquer `sensors_required` com status `NOT_RUN` ou `UNSTABLE` | **AT_RISK** |
 | R5.1 | Qualquer AC com `verifiable_by: "behaviour"` em status `NOT_RUN`, `UNSTABLE` ou `STALE` | **AT_RISK** |
+| R5.2 | Qualquer linter em `architecture_linters_required` em status `NOT_RUN`, `UNSTABLE` ou `STALE` | **AT_RISK** |
 | R6 | Qualquer `sensors_required` com status `FAIL_WARN` | **AT_RISK** |
 | R6.1 | Qualquer AC com `verifiable_by: "behaviour"` em status `FAIL_WARN` | **AT_RISK** |
 | R7 | Qualquer `deliverable.required=false` com status `MISSING` ou `FAIL` | **AT_RISK** |
 | R8 | Qualquer precondition `MANUAL_CHECK` ainda não confirmado (em status `approved`) | **AT_RISK** |
-| R9 | Todos os `deliverable.required=true` `PASS`, todos `sensors_required` `PASS`, todas ACs com `verifiable_by: "behaviour"` em `PASS`, todas preconditions `PASS` ou `MANUAL_CHECK`, e `acceptance_criteria` sem nenhum `FAIL` mecânico | **READY_TO_CLOSE** |
+| R9 | Todos os `deliverable.required=true` `PASS`, todos `sensors_required` `PASS`, todas ACs com `verifiable_by: "behaviour"` em `PASS`, todos linters em `architecture_linters_required` em `PASS`, todas preconditions `PASS` ou `MANUAL_CHECK`, e `acceptance_criteria` sem nenhum `FAIL` mecânico | **READY_TO_CLOSE** |
 | R10 | Nenhuma regra acima casa (progresso parcial, nada bloqueante) | **ON_TRACK** |
 
 **Princípios da agregação:**
 - **Sensores são autoridade sobre correção funcional estática.** Se um sensor `FAIL_BLOCKING`, o veredicto não pode ser `READY_TO_CLOSE` — não importa quantos deliverables estão `PASS` por análise estática.
 - **Behaviours são autoridade sobre runtime observável.** Se um behaviour referenciado em AC está `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` ou `BINDING_GAP`, o veredicto é `FAILED` via R2.1 — o runtime não confirma o critério de aceite, e binding de mão única é tratado como falha crítica.
-- **Staleness nunca vira PASS.** Behaviours em estado `STALE` são rebaixados via R5.1 — mesmo que o último resultado gravado tenha sido `pass`. A recuperação é sempre humana (re-executar `/behaviour-run`).
+- **Architecture linters são autoridade sobre invariantes estruturais cross-file.** Se um linter listado em `architecture_linters_required` falha, o veredicto é `FAILED` via R2.2 — independente de `severity` declarada. No contexto contratual, a presença no array `architecture_linters_required` é a obrigação; `severity` governa apenas o impacto operacional no `/ship-check`.
+- **Staleness nunca vira PASS.** Behaviours em estado `STALE` são rebaixados via R5.1, linters em estado `STALE` via R5.2 — mesmo que o último resultado gravado tenha sido `pass`. A recuperação é sempre humana (re-executar `/behaviour-run` ou `/lint-architecture`).
 - **Manual check nunca vira PASS automaticamente.** Manual checks mantêm o contrato em `AT_RISK` ou `ON_TRACK`; só a promoção humana para `done` via `/contract-create` (v2 ou ação manual) pode fechar.
 - **Deliverables opcionais não bloqueiam** `READY_TO_CLOSE` — mas aparecem em `AT_RISK` se ausentes, para visibilidade.
 - **Agregação é determinística.** Dois runs consecutivos com o mesmo estado produzem o mesmo veredicto. Nenhum componente probabilístico.
@@ -357,6 +417,17 @@ Resumo: X required PASS / Y required FAIL / Z opcionais MISSING
 
 **Observação:** o veredicto do phase contract acima é calculado exclusivamente contra os `deliverables`, `sensors_required`, `acceptance_criteria` e `preconditions` do phase contract. Sprints são sub-granularidade operacional e não afetam o veredicto — mesmo se um sprint estiver em `failed`, o phase contract pode continuar `ON_TRACK` se os deliverables da fase estiverem no caminho.
 
+## Architecture linters (aparece apenas se o contrato declara architecture_linters_required não-vazio)
+
+- **Last run at:** [finished_at do architecture-linters-last-run.json ou "(ausente)"]
+- **Stale:** [não | sim — motivo]
+
+| Linter ID | Categoria | Required by contract | Status | Severity | Evidência |
+|-----------|-----------|---------------------|--------|----------|-----------|
+| ... | ... | ... | ... | ... | ... |
+
+**Observação:** qualquer linter listado em `architecture_linters_required` é gate obrigatório independente de `severity`. Linter em `FAIL_BLOCKING` (ou `FAIL_WARN` promovido por obrigação contratual) ou `INVALID_LINTER_REF` rebaixa o veredicto via R2.2. Linter em `NOT_RUN`, `UNSTABLE` ou `STALE` rebaixa via R5.2. Consumers nunca tratam `STALE` como `PASS` — staleness exige re-execução humana de `/lint-architecture`.
+
 ## Behaviours runtime (aparece apenas se o contrato declara AC com verifiable_by: "behaviour")
 
 - **Last run at:** [finished_at do behaviours-last-run.json ou "(ausente)"]
@@ -388,26 +459,27 @@ Resumo: X required PASS / Y required FAIL / Z opcionais MISSING
 
 ## Regras
 
-1. **Read-only absoluto.** `/contract-check` nunca escreve em `.claude/runtime/contracts/*`, nunca modifica `execution-ledger.md`, nunca atualiza `active.json`, nunca dispara `/sensors-run` ou `/behaviour-run`. A única saída é o relatório ao usuário.
+1. **Read-only absoluto.** `/contract-check` nunca escreve em `.claude/runtime/contracts/*`, nunca modifica `execution-ledger.md`, nunca atualiza `active.json`, nunca dispara `/sensors-run`, `/behaviour-run` ou `/lint-architecture`. A única saída é o relatório ao usuário.
 2. **Sensores são autoridade sobre comportamento mecânico estático.** Se o contrato diz `sensors_required: ["unit-tests"]` e o sensor está `FAIL_BLOCKING`, o veredicto não pode ser `READY_TO_CLOSE`. Mesmo que todos os outros deliverables estejam `PASS`.
 3. **Behaviours são autoridade sobre runtime observável.** Se um AC declara `verifiable_by: "behaviour"` e o behaviour está `FAIL_BLOCKING`, `INVALID_BEHAVIOUR_REF` ou `BINDING_GAP`, o veredicto é `FAILED` via R2.1 — o runtime não confirma o critério de aceite.
-4. **Staleness de behaviours nunca vira PASS.** Behaviours em estado `STALE` são rebaixados via R5.1 mesmo que o último resultado gravado tenha sido `pass`. A única recuperação é re-executar `/behaviour-run` manualmente.
-5. **Binding bidirecional é obrigatório para behaviours.** AC com `verifiable_by: "behaviour"` exige `behaviour_id` declarado, e o behaviour correspondente em `behaviours.json` deve ter `contract_ref` de volta para o AC e `phase_id` do contrato atual. Binding de mão única é `BINDING_GAP` e rebaixa via R2.1.
-6. **Agregação é determinística.** A tabela de regras R1–R10 (com sub-regras R2.1, R5.1, R6.1) é aplicada na ordem; a primeira que casa decide. Não há heurística probabilística.
-7. **Manual check nunca vira automático.** `MANUAL_CHECK` é um estado terminal até confirmação humana — o command apenas reporta, nunca assume.
-8. **Deliverable com `INVALID_SENSOR_REF` é FAIL.** Contrato que referencia sensor inexistente é inválido por construção e deve ser tratado como falha crítica — não ignorado. O mesmo princípio aplica-se a `INVALID_BEHAVIOUR_REF`.
-9. **Staleness não bloqueia o command.** O command roda mesmo com contrato/sensores/behaviours stale; apenas reporta e rebaixa o veredicto quando apropriado. A decisão de atualizar evidência ou re-executar é humana.
-10. **Contrato em `draft` não é verificado.** `/contract-check` exige aprovação explícita do contrato antes de operar — senão está validando uma promessa ainda não comprometida.
+4. **Architecture linters são autoridade sobre invariantes estruturais.** Se um linter está listado em `architecture_linters_required` e falha, o veredicto é `FAILED` via R2.2 — independente de `severity` declarada. No contexto contratual, presença no array é a obrigação; `severity` governa apenas impacto operacional no `/ship-check`.
+5. **Staleness de behaviours e linters nunca vira PASS.** Behaviours em estado `STALE` são rebaixados via R5.1, linters via R5.2, mesmo que o último resultado gravado tenha sido `pass`. A única recuperação é re-executar `/behaviour-run` ou `/lint-architecture` manualmente.
+6. **Binding bidirecional é obrigatório para behaviours.** AC com `verifiable_by: "behaviour"` exige `behaviour_id` declarado, e o behaviour correspondente em `behaviours.json` deve ter `contract_ref` de volta para o AC e `phase_id` do contrato atual. Binding de mão única é `BINDING_GAP` e rebaixa via R2.1.
+7. **Agregação é determinística.** A tabela de regras R1–R10 (com sub-regras R2.1, R2.2, R5.1, R5.2, R6.1) é aplicada na ordem; a primeira que casa decide. Não há heurística probabilística.
+8. **Manual check nunca vira automático.** `MANUAL_CHECK` é um estado terminal até confirmação humana — o command apenas reporta, nunca assume.
+9. **Deliverable com `INVALID_SENSOR_REF` é FAIL.** Contrato que referencia sensor inexistente é inválido por construção e deve ser tratado como falha crítica — não ignorado. O mesmo princípio aplica-se a `INVALID_BEHAVIOUR_REF` e `INVALID_LINTER_REF`.
+10. **Staleness não bloqueia o command.** O command roda mesmo com contrato/sensores/behaviours/linters stale; apenas reporta e rebaixa o veredicto quando apropriado. A decisão de atualizar evidência ou re-executar é humana.
+11. **Contrato em `draft` não é verificado.** `/contract-check` exige aprovação explícita do contrato antes de operar — senão está validando uma promessa ainda não comprometida.
 
 ## Anti-padrões
 
 - **Modificar o contrato "só para atualizar evidência"** durante o `/contract-check` — qualquer modificação invalida a semântica read-only e abre porta para moving-the-goalposts silencioso
 - **Promover um deliverable para `PASS` com base em análise textual do código** quando o `verifiable_by` declarado é `sensor` e o sensor falhou — contrato diz sensor, sensor é autoridade
 - **Tratar um AC com `verifiable_by: "behaviour"` como `PASS` por análise de código** quando o behaviour correspondente falhou, nunca foi executado ou está stale — o runtime é autoridade sobre comportamento observável
-- **Disparar `/behaviour-run` automaticamente dentro do `/contract-check`** para "resolver" staleness ou NOT_RUN — o command é read-only absoluto e nunca executa behaviours
+- **Disparar `/behaviour-run` ou `/lint-architecture` automaticamente dentro do `/contract-check`** para "resolver" staleness ou NOT_RUN — o command é read-only absoluto e nunca executa behaviours ou linters
 - **Aceitar `STALE` como equivalente a `PASS` "porque o último run passou"** — staleness significa que o run não representa mais o estado atual; consumers nunca reinterpretam
 - **Ignorar `BINDING_GAP` "porque o behaviour existe"** — binding de mão única indica declaração inconsistente entre behaviour e contrato; a correção é manual
 - **Tratar `MANUAL_CHECK` como `PASS` "porque provavelmente está ok"** — manual check só vira PASS com ação humana explícita
-- **Veredicto `READY_TO_CLOSE` com `sensors_required` vazio ou `NOT_RUN`, ou com ACs-behaviour ainda em `NOT_RUN`** — se nenhum sensor ou behaviour rodou, não há evidência mecânica suficiente para fechar
+- **Veredicto `READY_TO_CLOSE` com `sensors_required` vazio ou `NOT_RUN`, ACs-behaviour em `NOT_RUN`, ou linters required em `NOT_RUN`** — se nenhum sensor, behaviour ou linter rodou, não há evidência mecânica suficiente para fechar
 - **Ignorar contratos em `draft` silenciosamente** — avisar explicitamente que o contrato não foi aprovado e o gate contratual está ausente
 - **Rodar `/contract-check` sem contrato ativo e falhar silenciosamente** — reportar explicitamente que não há contrato ativo e explicar que projetos sem contratos operam em modo degradado

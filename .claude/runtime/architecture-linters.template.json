@@ -1,0 +1,43 @@
+{
+  "schema_version": "1",
+  "_comment": "Template de architecture linters. Copiar para .claude/runtime/architecture-linters.json e editar para o projeto real. Cada linter valida um invariante arquitetural cross-file via comando shell — exit 0 = pass, qualquer outro = fail. Ver .claude/rules/architecture-linters.md para o contrato completo.",
+  "linters": [
+    {
+      "_comment": "Deteccao de dependencias circulares entre modulos. Usa rg (ripgrep) para buscar imports que criam ciclos. Substituir paths e patterns conforme a stack real.",
+      "id": "lint-01-no-circular-imports",
+      "description": "Detecta imports circulares entre modulos de dominio",
+      "category": "circular-deps",
+      "command": "! rg -l 'from.*\\.\\./infrastructure' src/screens/ src/components/ 2>/dev/null | head -1 | grep -q .",
+      "timeout_seconds": 30,
+      "requires_network": false,
+      "severity": "block",
+      "scope": "global",
+      "enabled": true
+    },
+    {
+      "_comment": "Violacao de layering: telas/componentes de UI nao devem importar diretamente de camada de infraestrutura (database, ORM, clients HTTP crus). Ajustar paths e patterns para a arquitetura real.",
+      "id": "lint-02-screen-no-direct-infra",
+      "description": "Telas e componentes nao importam diretamente de infra/database",
+      "category": "layering",
+      "command": "! rg -l 'import.*from.*(database|prisma|knex|sequelize|typeorm|drizzle)' src/screens/ src/components/ 2>/dev/null | head -1 | grep -q .",
+      "timeout_seconds": 30,
+      "requires_network": false,
+      "severity": "block",
+      "scope": "global",
+      "enabled": true
+    },
+    {
+      "_comment": "Verificacao de alinhamento entre types do frontend e schemas do backend. Exemplo usando script Python customizado — substituir pelo mecanismo real do projeto. Desabilitado por default.",
+      "id": "lint-03-type-schema-match",
+      "description": "Types do frontend alinham com schemas do backend",
+      "category": "type-schema-match",
+      "command": "python scripts/check-type-schema-alignment.py --strict",
+      "working_dir": null,
+      "timeout_seconds": 60,
+      "requires_network": false,
+      "severity": "block",
+      "scope": "global",
+      "enabled": false
+    }
+  ]
+}

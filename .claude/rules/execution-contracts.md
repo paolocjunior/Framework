@@ -63,6 +63,7 @@ O arquivo vive em `.claude/runtime/contracts/phase-<phase_id>.json`. É versiona
     }
   ],
   "sensors_required": ["array de sensor ids de sensors.json"],
+  "architecture_linters_required": ["array opcional de linter ids de architecture-linters.json"],
   "out_of_scope": [
     "string descrevendo o que explicitamente NÃO está no escopo"
   ],
@@ -99,6 +100,21 @@ O arquivo vive em `.claude/runtime/contracts/phase-<phase_id>.json`. É versiona
 - `preconditions` — se a fase depende de estado específico antes do start
 - `evidence` — populado durante a execução
 - `verdict`, `verdict_reason` — populados ao fechar a fase
+
+### Verificacao de invariantes arquiteturais por architecture linters (expansao aditiva)
+
+A partir da camada de architecture linters (ver `.claude/rules/architecture-linters.md`), o phase contract ganha o campo opcional `architecture_linters_required`:
+
+- `architecture_linters_required`: array de strings com ids de linters declarados em `.claude/runtime/architecture-linters.json`. Pode ser array vazio ou omitido (opt-in).
+
+**Regras:**
+
+1. Cada id listado deve existir em `architecture-linters.json` com `enabled: true`. Referencia a linter inexistente ou desabilitado torna o contrato invalido.
+2. Linters com `scope: phase` listados em `architecture_linters_required[]` devem ter `phase_id` compativel com o `phase_id` do contrato. Linters com `scope: global` sao aceitos em qualquer contrato.
+3. Qualquer linter listado em `architecture_linters_required[]` e tratado como **gate obrigatorio da fase** pelo `/contract-check`, independentemente da `severity` declarada no catalogo `architecture-linters.json`. A presenca no array contratual sobrescreve a semantica operacional: um linter com `severity: warn` que falha e apenas ressalva no `/ship-check`, mas e gate bloqueante no `/contract-check` se esta em `architecture_linters_required[]`.
+4. Referencia quebrada (linter id ausente em `architecture-linters.json`) e reportada como `INVALID_LINTER_REF` pelo `/contract-check` e tratada como falha via R2.2.
+
+**Interacao com `/contract-check`:** O Passo 7.7 so executa se `architecture_linters_required` e nao-vazio. Para cada linter listado, o command le `architecture-linters-last-run.json` (read-only), localiza o resultado pelo id, aplica staleness e rebaixa veredicto conforme tabela R1-R10 estendida. O command nunca dispara `/lint-architecture` — staleness e reportada, nao resolvida.
 
 ### Verificação de acceptance_criteria por behaviour (expansão aditiva)
 
