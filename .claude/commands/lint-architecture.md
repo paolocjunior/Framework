@@ -1,6 +1,6 @@
 ---
 description: Executar architecture linters declarados e produzir veredicto estruturado por exit code
-allowed-tools: Read, Grep, Glob, Bash(sh:*), Bash(bash:*), Bash(find:*), Bash(test:*), Bash(stat:*), Bash(jq:*), Bash(cat:*), Bash(date:*), Bash(wc:*), Bash(timeout:*), Bash(node:*), Bash(python:*), Bash(rg:*), Bash(grep:*)
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(sh:*), Bash(bash:*), Bash(find:*), Bash(test:*), Bash(stat:*), Bash(jq:*), Bash(cat:*), Bash(date:*), Bash(wc:*), Bash(timeout:*), Bash(node:*), Bash(python:*), Bash(rg:*), Bash(grep:*), Bash(mv:*)
 ---
 
 ## Carregar contexto (obrigatorio antes de qualquer outra acao)
