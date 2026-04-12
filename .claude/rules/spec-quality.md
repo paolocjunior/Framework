@@ -24,6 +24,16 @@
 - [ ] Mapa de decisão (tabela de veredictos, mapeamento de status, dispatch de eventos) não verificado contra todos os casos que o sistema pode gerar — lacunas causam falhas ou pausas silenciosas em casos legítimos
 - [ ] Sistema com múltiplos timeouts, contadores ou limites com nomes similares e contextos diferentes — nomes ambíguos garantem conflação durante a implementação
 
+## Flag — Cobertura cruzada: regras, fluxos e testes
+
+Esta seção verifica **paridade** entre as três camadas da spec. Problemas aqui significam que algo foi definido numa camada mas não está refletido nas demais, criando inconsistência silenciosa que o implementador só descobre durante o código.
+
+- [ ] Regra de negócio definida na spec mas ausente em pelo menos 1 fluxo que a aplica explicitamente — regra existe, fluxo não a documenta
+- [ ] Constraint (validação, limite, formato) definido nas regras mas sem cenário de teste correspondente quando o modo de teste promete validação objetiva — constraint existe, teste não cobre
+- [ ] Caminho de erro ou código de status (4xx, 5xx) mencionado na definição de API mas ausente nos fluxos de UI relevantes — API prevê o erro, fluxo não o documenta
+- [ ] Operação CRUD/ação que modifica estado definida nos fluxos mas sem cenário de teste de erro correspondente (ex: fluxo define apenas caminho feliz, não documenta o 404/422/409)
+- [ ] Comportamento de edição que deveria seguir as mesmas regras de criação mas não referencia explicitamente essa paridade — regra cobre criação, edição fica implícita
+
 ## Block implementation when
 
 - Fluxo central não está definido
