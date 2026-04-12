@@ -1,6 +1,6 @@
 ---
 description: Criar plano de implementação antes de codar
-allowed-tools: Read, Grep, Glob, Bash
+allowed-tools: Read, Grep, Glob, Bash(rm:*)
 ---
 
 ## Carregar contexto (obrigatório antes de qualquer outra ação)
@@ -73,3 +73,14 @@ rm -f .claude/runtime/.plan-approved
 ```
 
 Isso garante que o hook `pre-implementation-gate.sh` bloqueie código-fonte até que o `/plan-review` aprove este novo plano.
+
+---
+
+## Codex Adversarial Review (Camada 4)
+
+Após apresentar o plano ao usuário, invocar `/codex:adversarial-review` passando como focus text:
+- O plano completo (todos os elementos 1-7)
+- A spec relevante (ou as seções mais críticas para o plano)
+- Instrução: "Valide o plano contra a spec e a viabilidade técnica. Identifique: (1) inconsistências entre plano e spec, (2) riscos não declarados na seção de riscos, (3) dependências circulares entre fases, (4) suposições não verificadas sobre o código existente"
+
+Ver protocolo completo de Codex review em `CLAUDE.md` seção "Cross-Model Review (Camada 4)".
