@@ -1,6 +1,6 @@
-# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts + Behaviour Harness + Architecture Linters + Active Handoff + Knowledge Base
+# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts + Behaviour Harness + Architecture Linters + Active Handoff + Knowledge Base + Capability Gap Tracking
 
-Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre correção funcional, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável), **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback), **behaviour/runtime harness** (verificação observável de comportamento em runtime — requisição real, arquivo real, JSON path real — com evidência estruturada expected-vs-actual), **architecture linters** (invariantes estruturais cross-file com exit code como autoridade), **active handoff operacional** (resumo estruturado de sessão em 6 seções para continuidade entre sessões) e **knowledge base system-of-record** (view consolidada e navegável do estado do projeto — architecture, quality, security, decisions — derivada de evidência acumulada, nunca fonte de verdade).
+Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre correção funcional, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável), **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback), **behaviour/runtime harness** (verificação observável de comportamento em runtime — requisição real, arquivo real, JSON path real — com evidência estruturada expected-vs-actual), **architecture linters** (invariantes estruturais cross-file com exit code como autoridade), **active handoff operacional** (resumo estruturado de sessão em 6 seções para continuidade entre sessões), **knowledge base system-of-record** (view consolidada e navegável do estado do projeto — architecture, quality, security, decisions — derivada de evidência acumulada, nunca fonte de verdade) e **capability gap tracking** (registro persistente de lacunas de verificação — scanner determinístico detecta, humano decide, gaps nunca são gate).
 
 ## Estrutura
 
@@ -10,10 +10,11 @@ projeto/
 ├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
 └── .claude/
     ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 30 checklists de qualidade
+    ├── rules/                         # 31 checklists de qualidade
     │   ├── agent-contracts.md         # Protocolo de invocação e parsing de agents
     │   ├── architecture-linters.md    # Protocolo de architecture linters (invariantes cross-file)
     │   ├── behaviour-harness.md       # Protocolo de behaviour/runtime harness (expected-vs-actual)
+    │   ├── capability-gaps.md         # Protocolo de capability gap tracking (registro persistente)
     │   ├── code-review.md             # Critérios de revisão
     │   ├── context-loading.md         # Carregamento de contexto no início de commands
     │   ├── database-security.md       # Segurança de banco de dados
@@ -41,7 +42,7 @@ projeto/
     │   ├── structural-quality.md      # Qualidade estrutural
     │   ├── testing.md                 # Padrões de testes
     │   └── web-api-security.md        # Segurança web e API
-    ├── commands/                       # 27 slash commands
+    ├── commands/                       # 29 slash commands
     ├── agents/                         # 8 subagents (6 especializados + 2 transversais)
     ├── hooks/                          # 11 scripts de validação automática
     └── runtime/
@@ -77,6 +78,8 @@ projeto/
         │   ├── quality-posture.md
         │   ├── security-posture.md
         │   └── decisions-log.md
+        ├── capability-gaps.template.json # Template de capability gaps (bootstrap)
+        ├── capability-gaps.json       # Registro persistente de gaps (criado por /gaps-scan)
         ├── baseline-feedbacks/        # Templates de feedbacks comportamentais
         └── session-summaries/         # Resumos de sessão (gerados automaticamente)
 ```
@@ -111,7 +114,7 @@ No Claude Code do projeto:
 
 | Camada | Mecanismo | Proteção |
 |--------|-----------|----------|
-| 1 — Regras | CLAUDE.md + 30 rules | Direção e padrões |
+| 1 — Regras | CLAUDE.md + 31 rules | Direção e padrões |
 | 2 — Hooks | 11 scripts automáticos | Erros objetivos (secrets, syntax, gate de implementação) |
 | 3 — Memória | Feedbacks comportamentais | Erros de julgamento |
 | 4 — Cross-model | Codex adversarial review | Blind spots da IA principal |
@@ -171,6 +174,8 @@ Princípio: **se o comando retorna 0, o sensor passou — nenhum agente pode rei
 | `/lint-architecture` | Executar architecture linters e produzir veredicto estruturado por exit code |
 | `/kb-update` | Gerar ou atualizar documentos da knowledge base a partir de evidência acumulada |
 | `/kb-status` | Verificar estado da knowledge base (existência, staleness, lacunas) — read-only |
+| `/gaps-scan` | Detectar capability gaps e persistir registro estruturado (scanner determinístico, heurísticas H1-H6) |
+| `/gaps-status` | Verificar estado dos capability gaps (contagens, alertas, próximos passos) — read-only |
 
 ## Subagents
 
@@ -319,5 +324,27 @@ Oitavo item da fila de prioridades derivada da análise de Harness Engineering. 
 4. **Header de rastreabilidade obrigatório.** Todo documento gerado inclui `Derived from`, `Authority`, `Last semantic update`.
 5. **Não é gate.** KB é ferramenta de navegação e contexto. Nenhum veredicto de nenhum command depende da knowledge base.
 6. **Opt-in pattern.** Projetos sem KB operam normalmente. Consumers reportam ausência como lacuna informativa.
+
+## Pós-V4 — Capability Gap Tracking
+
+Nono e último item da fila de prioridades derivada da análise de Harness Engineering. Até agora, cada command detectava lacunas de forma independente e transitória (`NO_SENSORS`, `NEVER_RUN`, `STALE`, `BINDING_GAP`), mas a observação desaparecia após a sessão. Capability gap tracking transforma essas observações em **registro persistente, estruturado e versionado** com lifecycle próprio.
+
+- **1 rule nova**: `capability-gaps.md` — protocolo completo (6 princípios, 5 tipos de gap, heurísticas determinísticas H1-H6 para `native_uncovered`, lifecycle com 5 status, 5 merge rules, 12 categorias, 3 severidades, 8 vedações)
+- **2 commands novos**:
+  - `/gaps-scan` — único command que cria gaps. Scanner determinístico com 12 passos. Heurísticas H1-H6 (dep_scan, accessibility, pen_test, performance, e2e, ci_cd). Decisões humanas nunca sobrescritas
+  - `/gaps-status` — read-only absoluto. Agrega por status/tipo/severidade/categoria, verifica coerência, apresenta alertas
+- **2 artefatos novos em runtime**: `capability-gaps.template.json` (bootstrap null-safe) e `capability-gaps.json` (registro persistente, versionado no Git)
+- **2 commands modificados** (integração **informativa, nunca gate**):
+  - `/status-check` — nova seção "Capability Gaps" com contagens por status e severidade
+  - `/ship-check` — novo **Bloco 0.10** (informativo, não-gate) apresenta gaps sem afetar veredicto
+
+**Princípios:**
+
+1. **Registro persistente, não observação transitória.** Lacunas de verificação são registradas em artefato versionado com lifecycle próprio — não desaparecem ao final da sessão.
+2. **Scanner determinístico.** Só detecta o que pode verificar mecanicamente (arquivo existe? run executado? campo presente?). Heurísticas de `native_uncovered` são lista fechada H1-H6 — scanner nunca infere lacunas subjetivas.
+3. **Humano é dono do lifecycle.** Scanner cria gaps com `status: "open"`. Transições posteriores (`acknowledged`, `accepted`, `filled`, `deferred`) são decisões humanas preservadas intactas pelo scanner.
+4. **Não é gate.** Gaps são ferramenta de visibilidade. Nenhum command bloqueia veredicto por gaps — mesmo 10 gaps `open` de severidade `high` não rebaixam o ship-check.
+5. **Coexistência com `/skills-gap`.** `/skills-gap` = análise qualitativa humana. `/gaps-scan` = detecção mecânica objetiva. Domínios complementares sem sobreposição.
+6. **Opt-in pattern.** Projetos sem `capability-gaps.json` operam normalmente. Consumers reportam ausência como lacuna informativa.
 
 Para o changelog completo, ver seção `## Changelog` no `CLAUDE.md`.

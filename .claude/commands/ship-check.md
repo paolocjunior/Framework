@@ -20,7 +20,7 @@ Realizar verificação pré-entrega do projeto, avaliando se está pronto para d
 
 Os comandos e ferramentas de verificação devem ser adaptados à stack do projeto (ex.: npm/yarn/pnpm/bun, pip/pytest, cargo, gradle/gradlew, xcodebuild/swift, dotnet, cmake/make, go, unity/godot export pipeline). Os itens da checklist são universais; os comandos específicos variam por tecnologia.
 
-A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por quatro camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7), e architecture linters cross-file (`.claude/rules/architecture-linters.md` — Bloco 0.8). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10), expected-vs-actual runtime e verificação estrutural cross-file. O Bloco 0.9 (Knowledge Base) é informativo — apresenta estado da knowledge base sem afetar o veredicto.
+A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por quatro camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7), e architecture linters cross-file (`.claude/rules/architecture-linters.md` — Bloco 0.8). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10), expected-vs-actual runtime e verificação estrutural cross-file. O Bloco 0.9 (Knowledge Base) e o Bloco 0.10 (Capability Gaps) são informativos — apresentam estado da knowledge base e lacunas de verificação sem afetar o veredicto.
 
 ---
 
@@ -578,7 +578,69 @@ Se `knowledge-index.json` estiver ausente:
 - Recomendacao opcional: executar `/kb-update` para gerar mapa navegavel do projeto.
 ```
 
-Depois dos Blocos 0, 0.5, 0.6, 0.7, 0.8 e 0.9, para cada item dos Blocos A e B, reportar:
+Depois da knowledge base, incluir o resumo de capability gaps (Bloco 0.10). **Este bloco e estritamente informativo** — nao afeta o veredicto do ship-check.
+
+### Passo 0.10.1 — Ler registro de capability gaps
+
+Ler `.claude/runtime/capability-gaps.json`:
+
+- **Ausente** → projeto nao tem capability gap tracking. Registrar no output como "Capability gap tracking nao inicializado". Nao e debito tecnico, nao bloqueia veredicto — gaps sao ferramenta de visibilidade, nao enforcement. Recomendacao opcional: "Executar `/gaps-scan` para detectar lacunas de verificacao."
+- **Presente** → validar schema. Se invalido, reportar erro e seguir sem bloco de gaps.
+
+### Passo 0.10.2 — Agregar gaps por status e severidade
+
+Agrupar gaps em contagens por:
+
+- **Status:** open | acknowledged | accepted | filled | deferred
+- **Severidade:** high | medium | low
+- Destacar gaps `open` com severidade `high` como itens que merecem atencao antes da entrega
+
+### Passo 0.10.3 — Regra de read-only absoluto e nao-gate explicito
+
+Este bloco:
+- **Nunca modifica** `capability-gaps.json`
+- **Nunca executa** `/gaps-scan` (nem quando ausente, nem quando stale)
+- **Nunca afeta o veredicto** do ship-check — capability gaps sao ferramenta de visibilidade, nao enforcement
+- **Nunca rebaixa** `PRONTO` para `PRONTO COM RESSALVAS` por causa de gaps
+- Nao escreve no ledger diretamente
+
+**Principio:** capability gaps NAO sao gate. Mesmo com 10 gaps `open` de severidade `high`, o veredicto do ship-check permanece inalterado. A decisao de resolver, aceitar ou adiar gaps e do humano, nao do framework.
+
+**Output quando presente:**
+
+```markdown
+## Capability Gaps (Bloco 0.10 — informativo, nao-gate)
+
+- Ultimo scan: [timestamp ou "nunca"]
+- Total de gaps: N
+- Open (aguardando atencao): N
+- Acknowledged: N | Accepted: N | Filled: N | Deferred: N
+
+| Severidade | Open | Acknowledged | Accepted | Filled | Deferred |
+|------------|------|--------------|----------|--------|----------|
+| High | N | N | N | N | N |
+| Medium | N | N | N | N | N |
+| Low | N | N | N | N | N |
+
+### Gaps open com severidade high (requerem atencao)
+| ID | Tipo | Categoria | Descricao |
+|----|------|-----------|-----------|
+(gaps open com severidade high, se houver)
+
+> **Observacao:** Capability gaps sao ferramenta de visibilidade, nao enforcement. Gaps open nao rebaixam veredicto — aparecem aqui para que o responsavel pela entrega tenha visibilidade das lacunas de verificacao antes do ship. Para atualizar, executar `/gaps-scan`. Para ver detalhes, executar `/gaps-status`.
+```
+
+**Output quando ausente:**
+
+```markdown
+## Capability Gaps (Bloco 0.10 — informativo, nao-gate)
+
+- Status: NAO_INICIALIZADO (capability-gaps.json ausente)
+- Capability gap tracking e opcional e segue padrao opt-in. Ausencia nao e debito tecnico.
+- Recomendacao opcional: executar `/gaps-scan` para detectar lacunas de verificacao do projeto.
+```
+
+Depois dos Blocos 0, 0.5, 0.6, 0.7, 0.8, 0.9 e 0.10, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|

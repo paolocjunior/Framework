@@ -8,6 +8,7 @@
 > Pós-V4 adiciona por fim a camada de behaviour/runtime harness: 1 rule (`behaviour-harness.md`), 1 command (`/behaviour-run`), artefatos em `runtime/behaviours.json` + `runtime/behaviours-last-run.json`, expansão aditiva de execution contracts (`acceptance_criteria[].verifiable_by: "behaviour"` + `behaviour_id`) e integração read-only absoluta com `/contract-check` (Passo 7.6), `/ship-check` (Bloco 0.7) e `/verify-spec` (Passo 4.6) — fechando a lacuna "análise estática passa mas comportamento runtime falha". Sensores cobrem correção funcional; behaviours cobrem comportamento observável (requisição real, arquivo real, JSON path real) com evidência estruturada expected-vs-actual.
 > Pós-V4 adiciona a camada de architecture linters: 1 rule (`architecture-linters.md`), 1 command (`/lint-architecture`), artefatos em `runtime/architecture-linters.json` + `runtime/architecture-linters-last-run.json` + `runtime/architecture-linters.template.json`, expansão aditiva de execution contracts (`architecture_linters_required[]`) e integração read-only absoluta com `/contract-check` (Passo 7.7, regras R2.2/R5.2) e `/ship-check` (Bloco 0.8) — fechando a lacuna "invariantes estruturais cross-file não têm verificação declarativa". Sensores cobrem correção funcional; behaviours cobrem comportamento runtime; architecture linters cobrem invariantes estruturais (layering, circular deps, naming, type-schema match) com exit code como autoridade.
 > Pós-V4 adiciona a knowledge base system-of-record: 1 rule (`knowledge-base.md`), 2 commands (`/kb-update`, `/kb-status`), artefatos em `runtime/knowledge/` (index + documentos) + `runtime/knowledge.template/` (esqueletos), integração informativa (nunca gate) com `/status-check` e `/ship-check` (Bloco 0.9) — fechando a lacuna "evidência copiosa existe em 7+ camadas mas nenhum artefato consolida isso em conhecimento navegável do projeto". 4 documentos (architecture, quality-posture, security-posture, decisions-log) sintetizam artefatos autoritativos com anti-churn via content_hash e header de rastreabilidade obrigatório.
+> Pós-V4 adiciona capability gap tracking: 1 rule (`capability-gaps.md`), 2 commands (`/gaps-scan`, `/gaps-status`), artefatos em `runtime/capability-gaps.json` + `runtime/capability-gaps.template.json`, integração informativa (nunca gate) com `/status-check` e `/ship-check` (Bloco 0.10) — fechando a lacuna "lacunas de verificação são reportadas transitoriamente por cada command, mas a observação desaparece após a sessão". Scanner detecta 5 tipos de gap (declaration_absent, never_run, stale, binding_gap, native_uncovered) com heurísticas determinísticas H1-H6. Decisões humanas (acknowledged, accepted, filled, deferred) nunca são sobrescritas pelo scanner.
 > Mudanças puramente aditivas — nada da V3/V4 foi removido ou quebrado. Para o histórico completo, ver `## Changelog` ao final.
 
 ## Princípios
@@ -116,6 +117,8 @@ Regras:
 | `runtime/knowledge/knowledge-index.json` | Índice estruturado da knowledge base — existência, staleness, hash, fontes por documento | `/kb-update` (automático) | Dentro do projeto (Git) |
 | `runtime/knowledge/*.md` | Documentos da knowledge base (architecture, quality-posture, security-posture, decisions-log) | `/kb-update` (automático) | Dentro do projeto (Git) |
 | `runtime/knowledge.template/*.md` | Templates de esqueleto dos 4 documentos da knowledge base | Referência para `/kb-update` na primeira geração | Dentro do projeto (Git) |
+| `runtime/capability-gaps.json` | Registro persistente de capability gaps — lacunas de verificação detectadas e decisões humanas | `/gaps-scan` (detecção e merge) | Dentro do projeto (Git) |
+| `runtime/capability-gaps.template.json` | Template de capability gaps para bootstrap | Referência para `/gaps-scan` na primeira execução | Dentro do projeto (Git) |
 | `memory/project_spec-status.md` | Snapshot resumido do estado atual | Commands (junto com ledger) | Fora do projeto (memória Claude Code) |
 
 O ledger e o snapshot formam um **trio de sincronização** com o `MEMORY.md` do sistema de memória. Quando o estado do projeto muda, os 3 devem ser atualizados juntos. Ver `.claude/rules/state-sync.md` para o protocolo completo e `.claude/runtime/project-status.template.md` para o formato do snapshot.
@@ -310,6 +313,7 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `.claude/rules/behaviour-harness.md` — protocolo de behaviour/runtime harness (ação disparada contra o sistema + expected-vs-actual estruturado, complementar aos sensores)
 - `.claude/rules/architecture-linters.md` — protocolo de architecture linters (invariantes estruturais cross-file, exit code como autoridade, complementar a sensores e behaviours)
 - `.claude/rules/knowledge-base.md` — protocolo de knowledge base system-of-record (view consolidada e navegável do conhecimento acumulado, derivada de artefatos autoritativos, nunca gate)
+- `.claude/rules/capability-gaps.md` — protocolo de capability gap tracking (registro persistente de lacunas de verificação, scanner determinístico, decisões humanas preservadas, nunca gate)
 
 ## Slash Commands
 
@@ -340,6 +344,8 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `/lint-architecture` — executar architecture linters declarados em `architecture-linters.json` e produzir veredicto estruturado por exit code em `architecture-linters-last-run.json`
 - `/kb-update` — gerar ou atualizar documentos da knowledge base a partir de evidência acumulada do projeto (architecture, quality-posture, security-posture, decisions-log). Único command que escreve nos documentos da KB. Anti-churn: só persiste quando conteúdo semântico mudou
 - `/kb-status` — verificar estado atual da knowledge base — documentos existentes, staleness e lacunas. Read-only absoluto
+- `/gaps-scan` — detectar capability gaps do projeto (lacunas de verificação) e persistir registro estruturado em `capability-gaps.json`. Único command que cria gaps. Scanner determinístico com heurísticas H1-H6 para `native_uncovered`. Decisões humanas nunca sobrescritas
+- `/gaps-status` — verificar estado atual dos capability gaps — registro persistente de lacunas de verificação. Read-only absoluto, nunca modifica `capability-gaps.json`
 
 ## Subagents
 
@@ -386,6 +392,38 @@ O command invocador pode sobrescrever o model via parâmetro `model` da Agent to
 2. Se a tarefa é estrutural (presença, contagem, classificação por regras determinísticas) → `sonnet` default com override condicional para `opus` quando a criticidade do contexto justificar
 
 ## Changelog
+
+### Pos-V4 — Capability Gap Tracking
+
+Nono e ultimo item da fila de prioridades derivada da analise de Harness Engineering. Sensores (item #2) cobrem correcao funcional. Execution contracts (item #3) declaram compromisso upstream. Sprint contracts (item #4) fecham ciclo curto. Behaviours (item #5) cobrem runtime observavel. Handoff operacional (item #6) fecha continuidade entre sessoes. Architecture linters (item #7) cobrem invariantes estruturais. Knowledge base (item #8) sintetiza conhecimento navegavel. Capability gap tracking fecha a lacuna final: **"lacunas de verificacao sao reportadas transitoriamente por cada command, mas a observacao desaparece apos a sessao"**.
+
+Ate agora, cada command do framework detectava lacunas de forma independente e transitoria: `/ship-check` reportava `NO_SENSORS` no Bloco 0, `/contract-check` reportava `NEVER_RUN` no Passo 7.6, `/verify-spec` notava ausencia de behaviours. Porem, essas observacoes desapareciam apos a sessao — nenhum artefato persistia o inventario completo de lacunas de verificacao. Capability gap tracking transforma essas observacoes transitorias em **registro persistente, estruturado e versionado**.
+
+**Rules novas (1):**
+- `.claude/rules/capability-gaps.md` — protocolo completo de capability gap tracking. 6 principios (registro persistente, scanner deterministico, humano e dono do lifecycle, nao-gate, coexistencia com `/skills-gap`, severidade proporcional). 5 tipos de gap (`declaration_absent`, `never_run`, `stale`, `binding_gap`, `native_uncovered`). Heuristicas deterministicas H1-H6 para `native_uncovered` (lista fechada — scanner nao improvisa). Lifecycle com 5 status (`open → acknowledged → accepted | filled | deferred`). 5 regras de merge (scanner cria `open`, atualiza metadata, preserva decisoes humanas intactas, nao remove gaps, gap `filled` re-detectado cria novo com id versionado). 12 categorias de gap (sensors, behaviours, linters, contracts, knowledge_base, pen_test, e2e, accessibility, ci_cd, dep_scan, performance, diagrams). 3 niveis de severidade (high, medium, low). Integracao informativa (nunca gate) com `/status-check` e `/ship-check`. 8 vedacoes.
+
+**Commands novos (2):**
+- `.claude/commands/gaps-scan.md` — unico command que cria gaps. 12 passos (context loading, carregar registro existente, detectar `declaration_absent`, detectar `never_run`, detectar `stale`, detectar `binding_gap`, detectar `native_uncovered` via H1-H6, aplicar 5 merge rules, gerar IDs sequenciais, persistir em `capability-gaps.json`, atualizar ledger, reportar). Heuristicas deterministicas: H1 dep_scan, H2 accessibility, H3 pen_test, H4 performance, H5 e2e, H6 ci_cd. Scanner nunca sobrescreve status humano, nunca remove gaps, nunca reabre `filled`. `allowed-tools: Read, Write, Grep, Glob, Bash(find:*), Bash(date:*), Bash(jq:*), Bash(test:*)`
+- `.claude/commands/gaps-status.md` — read-only absoluto. Le `capability-gaps.json`, agrega por status/tipo/severidade/categoria, verifica coerencia (justificativas ausentes, scan antigo, gaps esquecidos), apresenta resumo consolidado com tabelas. Nunca modifica o registro, nunca executa `/gaps-scan`. `allowed-tools: Read, Grep, Glob`
+
+**Artefatos novos de runtime (2):**
+- `.claude/runtime/capability-gaps.json` — registro persistente de gaps (versionado no Git). Criado na primeira execucao de `/gaps-scan` ou copiado do template
+- `.claude/runtime/capability-gaps.template.json` — template bootstrap null-safe (`schema_version: "1"`, `last_scan: null`, `gaps: []`)
+
+**Commands modificados (2):**
+- `status-check.md` — adicionado item 11 "Capability gaps" em "O que verificar" (ler `capability-gaps.json`, verificar total/contagens/gaps open high). Adicionada secao "Capability Gaps (informativo)" no formato de saida. Read-only, lacuna informativa se ausente
+- `ship-check.md` — adicionado **Bloco 0.10 — Capability Gaps (informativo, nao-gate)** apos Bloco 0.9 (Knowledge Base). 3 passos (ler registro, agregar por status/severidade, read-only absoluto + nao-gate explicito). **Nao afeta veredicto** — gaps nunca rebaixam `PRONTO` para `PRONTO COM RESSALVAS`. Texto introdutorio atualizado para referenciar Bloco 0.10. Linha "Depois dos Blocos" atualizada para incluir 0.10
+
+**Mudancas conceituais:**
+- **Gaps sao registro persistente, nao observacao transitoria.** Ate agora, lacunas de verificacao eram reportadas e esquecidas. Agora sao registradas em artefato versionado com lifecycle proprio
+- **Scanner e deterministico e honesto.** So detecta o que pode verificar mecanicamente (arquivo existe? run executado? campo presente?). Heuristicas de `native_uncovered` sao lista fechada H1-H6 — scanner nunca infere lacunas subjetivas
+- **Humano e dono do lifecycle.** Scanner cria gaps com `status: "open"`. Todas as transicoes posteriores (`acknowledged`, `accepted`, `filled`, `deferred`) sao decisoes humanas que o scanner preserva intactas. Scanner nunca sobrescreve `status`, `resolution`, `resolution_justification` ou `severity` de gaps com status humano
+- **Gaps nao sao gate.** Diferente de sensores/behaviours/linters que sao gates mecanicos, gaps sao ferramenta de visibilidade. Nenhum command bloqueia veredicto por gaps — mesmo 10 gaps `open` de severidade `high` nao rebaixam o ship-check
+- **Coexistencia com `/skills-gap`.** `/skills-gap` = analise qualitativa humana de lacunas de cobertura. `/gaps-scan` = deteccao mecanica objetiva de lacunas de verificacao. As duas ferramentas operam em dominios complementares sem sobreposicao
+- **Merge rules preservam historico.** Gaps nao detectados em scan subsequente permanecem no registro (podem ter sido resolvidos fora do escopo do scanner). Gaps `filled` re-detectados criam novo gap com id versionado (ex: `gap-01-no-sensors-v2`) — o gap `filled` anterior permanece intacto
+- **Opt-in pattern (mesmo de sensores/behaviours/linters/contracts/KB).** Projetos sem `capability-gaps.json` operam normalmente. Consumers reportam ausencia como lacuna informativa, nao bloqueante
+
+**Regra de auto-modificacao do framework (mantida):** trabalho sobre o proprio framework (criar rule, command, template) nao aplica o workflow padrao (`/plan-review`, Codex review, marker `.plan-approved`). O ciclo `/plan` → aprovacao direta do usuario → implementacao e suficiente.
 
 ### Pos-V4 — Knowledge Base System-of-Record
 

@@ -17,7 +17,8 @@ Ler `.claude/runtime/execution-ledger.md` e reportar o estado atual do projeto d
 8. Padrões `deprecated` que ainda podem estar em uso no código
 9. Resumo da última sessão (ler `.claude/runtime/session-summaries/latest.md` se existir — segue formato de handoff operacional com 6 seções estruturadas: onde estamos, o que está ativo, o que acabou de acontecer, o que falta fazer, o que bloqueia, fonte de verdade)
 10. Knowledge base (ler `.claude/runtime/knowledge/knowledge-index.json` se existir — verificar existência, staleness e lacunas dos 4 documentos: architecture, quality-posture, security-posture, decisions-log)
-11. Próxima ação recomendada com base no estado atual
+11. Capability gaps (ler `.claude/runtime/capability-gaps.json` se existir — verificar total de gaps, contagem por status e severidade, gaps open com high severity. Se ausente, reportar "Capability gap tracking nao inicializado — executar /gaps-scan para detectar lacunas de verificacao")
+12. Próxima ação recomendada com base no estado atual
 
 ## Formato de Saída
 
@@ -56,6 +57,12 @@ Ler `.claude/runtime/execution-ledger.md` e reportar o estado atual do projeto d
 | Documento | Existe | Stale | Ultima geracao |
 |-----------|--------|-------|----------------|
 (tabela derivada de knowledge-index.json. Se index ausente, reportar "Knowledge base nao inicializada — executar /kb-update para gerar")
+
+### Capability Gaps (informativo)
+- Ultimo scan: [timestamp ou "nunca"]
+- Total: N (open: X | acknowledged: Y | accepted: Z | filled: W | deferred: V)
+- High open: N | Medium open: N | Low open: N
+(resumo derivado de capability-gaps.json. Se ausente, reportar "Capability gap tracking nao inicializado — executar /gaps-scan para detectar lacunas de verificacao")
 
 ### Next Recommended Action
 (o que deveria ser feito agora, baseado no estado do ledger)

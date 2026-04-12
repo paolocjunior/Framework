@@ -1,0 +1,6 @@
+{
+  "schema_version": "1",
+  "_comment_header": "Template de capability-gaps.json. Copiar para .claude/runtime/capability-gaps.json e executar /gaps-scan para popular gaps detectados. Gaps com status diferente de 'open' sao preservados pelo scanner — decisoes humanas nunca sao sobrescritas. Ver .claude/rules/capability-gaps.md para o contrato completo.",
+  "last_scan": null,
+  "gaps": []
+}
