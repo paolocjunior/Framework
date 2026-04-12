@@ -7,6 +7,7 @@
 > Pós-V4 adiciona ainda a camada de sprint contracts (granularidade intra-fase): 3 commands (`/sprint-create`, `/sprint-evaluate`, `/sprint-close`), artefatos em `runtime/contracts/sprints/<parent_phase_id>/` e integração informativa com `/contract-check` e `/ship-check` (Bloco 0.6) — fechando o ciclo curto de feedback dentro de uma fase. Phase contract permanece imutável; o vínculo fase → sprints é derivado do filesystem.
 > Pós-V4 adiciona por fim a camada de behaviour/runtime harness: 1 rule (`behaviour-harness.md`), 1 command (`/behaviour-run`), artefatos em `runtime/behaviours.json` + `runtime/behaviours-last-run.json`, expansão aditiva de execution contracts (`acceptance_criteria[].verifiable_by: "behaviour"` + `behaviour_id`) e integração read-only absoluta com `/contract-check` (Passo 7.6), `/ship-check` (Bloco 0.7) e `/verify-spec` (Passo 4.6) — fechando a lacuna "análise estática passa mas comportamento runtime falha". Sensores cobrem correção funcional; behaviours cobrem comportamento observável (requisição real, arquivo real, JSON path real) com evidência estruturada expected-vs-actual.
 > Pós-V4 adiciona a camada de architecture linters: 1 rule (`architecture-linters.md`), 1 command (`/lint-architecture`), artefatos em `runtime/architecture-linters.json` + `runtime/architecture-linters-last-run.json` + `runtime/architecture-linters.template.json`, expansão aditiva de execution contracts (`architecture_linters_required[]`) e integração read-only absoluta com `/contract-check` (Passo 7.7, regras R2.2/R5.2) e `/ship-check` (Bloco 0.8) — fechando a lacuna "invariantes estruturais cross-file não têm verificação declarativa". Sensores cobrem correção funcional; behaviours cobrem comportamento runtime; architecture linters cobrem invariantes estruturais (layering, circular deps, naming, type-schema match) com exit code como autoridade.
+> Pós-V4 adiciona a knowledge base system-of-record: 1 rule (`knowledge-base.md`), 2 commands (`/kb-update`, `/kb-status`), artefatos em `runtime/knowledge/` (index + documentos) + `runtime/knowledge.template/` (esqueletos), integração informativa (nunca gate) com `/status-check` e `/ship-check` (Bloco 0.9) — fechando a lacuna "evidência copiosa existe em 7+ camadas mas nenhum artefato consolida isso em conhecimento navegável do projeto". 4 documentos (architecture, quality-posture, security-posture, decisions-log) sintetizam artefatos autoritativos com anti-churn via content_hash e header de rastreabilidade obrigatório.
 > Mudanças puramente aditivas — nada da V3/V4 foi removido ou quebrado. Para o histórico completo, ver `## Changelog` ao final.
 
 ## Princípios
@@ -112,6 +113,9 @@ Regras:
 | `runtime/architecture-linters.json` | Declaração de architecture linters do projeto (invariantes estruturais cross-file) | Manual, copiado de `architecture-linters.template.json` | Dentro do projeto (Git) |
 | `runtime/architecture-linters-last-run.json` | Veredicto estruturado da última execução dos architecture linters | `/lint-architecture` (automático) | Dentro do projeto (efêmero, pode ficar fora do Git) |
 | `runtime/architecture-linters.template.json` | Template de architecture linters com 3 exemplos (circular-deps, layering, type-schema-match) | Referência para bootstrap de `architecture-linters.json` | Dentro do projeto (Git) |
+| `runtime/knowledge/knowledge-index.json` | Índice estruturado da knowledge base — existência, staleness, hash, fontes por documento | `/kb-update` (automático) | Dentro do projeto (Git) |
+| `runtime/knowledge/*.md` | Documentos da knowledge base (architecture, quality-posture, security-posture, decisions-log) | `/kb-update` (automático) | Dentro do projeto (Git) |
+| `runtime/knowledge.template/*.md` | Templates de esqueleto dos 4 documentos da knowledge base | Referência para `/kb-update` na primeira geração | Dentro do projeto (Git) |
 | `memory/project_spec-status.md` | Snapshot resumido do estado atual | Commands (junto com ledger) | Fora do projeto (memória Claude Code) |
 
 O ledger e o snapshot formam um **trio de sincronização** com o `MEMORY.md` do sistema de memória. Quando o estado do projeto muda, os 3 devem ser atualizados juntos. Ver `.claude/rules/state-sync.md` para o protocolo completo e `.claude/runtime/project-status.template.md` para o formato do snapshot.
@@ -302,8 +306,10 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `.claude/rules/agent-contracts.md` — protocolo de invocação e parsing de agents (formato de input, output, modos de falha)
 - `.claude/rules/sensors.md` — protocolo de sensores mecânicos (exit code é autoridade, não narrativa do agente)
 - `.claude/rules/execution-contracts.md` — protocolo de contratos de execução estruturados por fase (upstream declaration of phase commitments)
+- `.claude/rules/sprint-contracts.md` — protocolo de sprint contracts (granularidade intra-fase com evaluator determinístico, ciclos curtos de feedback)
 - `.claude/rules/behaviour-harness.md` — protocolo de behaviour/runtime harness (ação disparada contra o sistema + expected-vs-actual estruturado, complementar aos sensores)
 - `.claude/rules/architecture-linters.md` — protocolo de architecture linters (invariantes estruturais cross-file, exit code como autoridade, complementar a sensores e behaviours)
+- `.claude/rules/knowledge-base.md` — protocolo de knowledge base system-of-record (view consolidada e navegável do conhecimento acumulado, derivada de artefatos autoritativos, nunca gate)
 
 ## Slash Commands
 
@@ -332,6 +338,8 @@ As rules abaixo definem critérios normativos de revisão, segurança, verifica�
 - `/sprint-close` — fechar sprint contract ativo com transição human-confirmed para `passed | failed | deferred`. Único command que altera `status` e `verdict` do sprint
 - `/behaviour-run` — executar behaviours declarados em `behaviours.json`, disparar a ação de cada um contra o sistema real, comparar observado contra `expectations[]` e produzir veredicto estruturado expected-vs-actual em `behaviours-last-run.json`
 - `/lint-architecture` — executar architecture linters declarados em `architecture-linters.json` e produzir veredicto estruturado por exit code em `architecture-linters-last-run.json`
+- `/kb-update` — gerar ou atualizar documentos da knowledge base a partir de evidência acumulada do projeto (architecture, quality-posture, security-posture, decisions-log). Único command que escreve nos documentos da KB. Anti-churn: só persiste quando conteúdo semântico mudou
+- `/kb-status` — verificar estado atual da knowledge base — documentos existentes, staleness e lacunas. Read-only absoluto
 
 ## Subagents
 
@@ -378,6 +386,43 @@ O command invocador pode sobrescrever o model via parâmetro `model` da Agent to
 2. Se a tarefa é estrutural (presença, contagem, classificação por regras determinísticas) → `sonnet` default com override condicional para `opus` quando a criticidade do contexto justificar
 
 ## Changelog
+
+### Pos-V4 — Knowledge Base System-of-Record
+
+Oitavo item da fila de prioridades derivada da analise de Harness Engineering. Sensores (item #2) cobrem correcao funcional. Execution contracts (item #3) declaram compromisso upstream. Sprint contracts (item #4) fecham ciclo curto. Behaviours (item #5) cobrem runtime observavel. Handoff operacional (item #6) fecha continuidade entre sessoes. Architecture linters (item #7) cobrem invariantes estruturais. Knowledge base fecha a lacuna complementar: **"evidencia copiosa existe em 7+ camadas, mas nenhum artefato consolida isso em conhecimento navegavel do projeto"**.
+
+A knowledge base e uma **view consolidada e navegavel** — nao fonte de verdade. Sintetiza artefatos autoritativos (ledger, contratos, sensores, behaviours, linters, pattern-registry, auditorias) em 4 documentos concisos (~50-150 linhas cada) que respondem perguntas especificas: "qual a arquitetura?", "qual a postura de qualidade?", "qual a postura de seguranca?", "quais decisoes foram tomadas e por que?".
+
+**Rules novas (1):**
+- `.claude/rules/knowledge-base.md` — protocolo completo de knowledge base system-of-record. 7 principios (sintese nao duplicacao, mapa nao atlas, derivado nao autoritativo, opt-in, atualizacao explicita, idempotente anti-churn, rastreabilidade obrigatoria). 4 tipos de documento com schema (architecture.md, quality-posture.md, security-posture.md, decisions-log.md). Header padronizado obrigatorio (Derived from, Authority, Last semantic update). Knowledge index (`knowledge-index.json`) com `content_hash` (SHA-256 truncado), `sources_consulted`, `stale`, `stale_reason`, `generated_at` por documento. Politica de staleness (3 criterios). Integracao com consumers (`/kb-update` escreve, `/kb-status` le, `/status-check` e `/ship-check` leem informativamente). 9 vedacoes. Bootstrap com templates separados de documentos reais.
+
+**Commands novos (2):**
+- `.claude/commands/kb-update.md` — unico command que escreve nos documentos da knowledge base. 8 passos (context loading, verificar estrutura, coletar fontes, gerar cada documento, header padronizado, deteccao de mudanca semantica via hash SHA-256 anti-churn, persistir, atualizar ledger, reportar). Flags: `--only <doc>`, `--force`, `--dry-run`. Anti-churn: so persiste quando content_hash difere do anterior — evita diffs inuteis no Git
+- `.claude/commands/kb-status.md` — read-only absoluto. Le `knowledge-index.json`, avalia staleness contra artefatos-fonte, apresenta resumo consolidado com tabela de documentos (existe/stale/motivo/fontes). Nunca modifica nenhum artefato
+
+**Artefatos novos de runtime (6):**
+- `.claude/runtime/knowledge/knowledge-index.json` — indice estruturado null-safe bootstrap (versionado no Git)
+- `.claude/runtime/knowledge/*.md` — documentos reais da KB (so existem apos primeiro `/kb-update`, versionados no Git)
+- `.claude/runtime/knowledge.template/architecture.md` — template esqueleto
+- `.claude/runtime/knowledge.template/quality-posture.md` — template esqueleto
+- `.claude/runtime/knowledge.template/security-posture.md` — template esqueleto
+- `.claude/runtime/knowledge.template/decisions-log.md` — template esqueleto
+
+**Commands modificados (2):**
+- `status-check.md` — adicionado item 10 "Knowledge base" em "O que verificar" (ler `knowledge-index.json`, verificar existencia/staleness dos 4 documentos) e secao "Knowledge Base (informativo)" no formato de saida. Read-only, lacuna informativa se ausente
+- `ship-check.md` — adicionado **Bloco 0.9 — Knowledge Base (informativo, nao-gate)** apos Bloco 0.8 (architecture linters). Apresenta tabela com estado dos 4 documentos (existe/stale/motivo). **Nao afeta veredicto** — KB nunca e gate. Texto introdutorio atualizado para referenciar Bloco 0.9
+
+**Mudancas conceituais:**
+- **KB e view derivada, nao fonte de verdade.** Em caso de divergencia entre KB e fontes (ledger, contratos, sensores, linters, pattern-registry), as fontes prevalecem. KB deve ser regenerada via `/kb-update`, nao editada manualmente
+- **Mapa, nao atlas.** Cada documento alvo de 50-150 linhas. Documentos >200 linhas sao atlas — devem ser refatorados
+- **Anti-churn via content_hash.** `/kb-update` calcula SHA-256 do conteudo gerado (excluindo header de timestamp), compara com hash anterior no index. So persiste se hash difere — evita diffs inuteis no Git e commits de ruido
+- **Header padronizado de rastreabilidade.** Todo documento inclui `Derived from` (fontes consultadas), `Authority` (fontes prevalecem), `Last semantic update` (data da ultima mudanca real). Sem header = documento invalido
+- **Opt-in pattern (mesmo de sensores/behaviours/linters/contracts/sprints).** Projetos sem KB operam normalmente. Consumers reportam ausencia como lacuna informativa, nao bloqueante
+- **KB nunca e gate.** Diferente de sensores/behaviours/linters que sao gates mecanicos, a KB e ferramenta de navegacao e contexto. Nenhum command bloqueia veredicto por KB stale ou ausente
+- **Atualizacao sempre explicita.** Nunca gerada automaticamente por hook. O usuario decide quando consolidar via `/kb-update`
+- **Bootstrap: templates separados de documentos reais.** Templates vivem em `knowledge.template/`, documentos reais em `knowledge/`. Documentos reais so existem apos o primeiro `/kb-update`. Index bootstrap e null-safe (todos `exists: false`, `stale: true`, `stale_reason: "document not yet generated"`)
+
+**Regra de auto-modificacao do framework (mantida):** trabalho sobre o proprio framework (criar rule, command, template) nao aplica o workflow padrao (`/plan-review`, Codex review, marker `.plan-approved`). O ciclo `/plan` → aprovacao direta do usuario → implementacao e suficiente.
 
 ### Pós-V4 — Architecture Linters
 

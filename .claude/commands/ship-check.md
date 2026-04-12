@@ -20,7 +20,7 @@ Realizar verificação pré-entrega do projeto, avaliando se está pronto para d
 
 Os comandos e ferramentas de verificação devem ser adaptados à stack do projeto (ex.: npm/yarn/pnpm/bun, pip/pytest, cargo, gradle/gradlew, xcodebuild/swift, dotnet, cmake/make, go, unity/godot export pipeline). Os itens da checklist são universais; os comandos específicos variam por tecnologia.
 
-A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por quatro camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7), e architecture linters cross-file (`.claude/rules/architecture-linters.md` — Bloco 0.8). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10), expected-vs-actual runtime e verificação estrutural cross-file.
+A verificação é dividida em dois blocos com semânticas distintas. **O Bloco A é precedido por quatro camadas mecânicas/contratuais autoritativas**: sensores estáticos (`.claude/rules/sensors.md` — Bloco 0), contrato de execução da fase (`.claude/rules/execution-contracts.md` — Bloco 0.5), behaviours runtime observáveis (`.claude/rules/behaviour-harness.md` — Bloco 0.7), e architecture linters cross-file (`.claude/rules/architecture-linters.md` — Bloco 0.8). Essas camadas substituem narrativa do agente por resultados estruturados vindos de exit code, veredicto determinístico (R1–R10), expected-vs-actual runtime e verificação estrutural cross-file. O Bloco 0.9 (Knowledge Base) é informativo — apresenta estado da knowledge base sem afetar o veredicto.
 
 ---
 
@@ -547,7 +547,38 @@ Se os linters estao declarados mas nunca foram executados:
 - Observacao: ship-check e read-only e **nao** invoca `/lint-architecture` automaticamente — decisao humana.
 ```
 
-Depois dos Blocos 0, 0.5, 0.6, 0.7 e 0.8, para cada item dos Blocos A e B, reportar:
+Depois dos linters, incluir o resumo da knowledge base (Bloco 0.9). **Este bloco e estritamente informativo** — nao afeta o veredicto do ship-check.
+
+```markdown
+## Knowledge Base (Bloco 0.9 — informativo, nao-gate)
+
+- Status: [ATUALIZADA | STALE | NAO_INICIALIZADA]
+- Fonte: `.claude/runtime/knowledge/knowledge-index.json`
+- Documentos existentes: N/4
+- Documentos stale: N
+- Ultimo full update: [timestamp ou "nunca"]
+
+| Documento | Existe | Gerado em | Stale | Motivo |
+|-----------|--------|-----------|-------|--------|
+| architecture.md | sim | 2026-04-10 | nao | — |
+| quality-posture.md | sim | 2026-04-10 | sim | sensors-last-run.json modificado |
+| security-posture.md | nao | — | — | nao gerado |
+| decisions-log.md | sim | 2026-04-08 | sim | pattern-registry.md modificado |
+
+> **Observacao:** Knowledge base e ferramenta de navegacao e contexto, nunca gate. Documentos stale ou ausentes nao rebaixam veredicto — aparecem aqui apenas para visibilidade. Para atualizar, executar `/kb-update`.
+```
+
+Se `knowledge-index.json` estiver ausente:
+
+```markdown
+## Knowledge Base (Bloco 0.9 — informativo, nao-gate)
+
+- Status: NAO_INICIALIZADA (knowledge-index.json ausente)
+- Knowledge base e opcional e segue padrao opt-in. Ausencia nao e debito tecnico.
+- Recomendacao opcional: executar `/kb-update` para gerar mapa navegavel do projeto.
+```
+
+Depois dos Blocos 0, 0.5, 0.6, 0.7, 0.8 e 0.9, para cada item dos Blocos A e B, reportar:
 
 | Item | Status | Evidência | Classificação |
 |------|--------|-----------|---------------|

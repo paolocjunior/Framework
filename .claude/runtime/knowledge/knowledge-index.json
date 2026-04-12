@@ -1,0 +1,42 @@
+{
+  "schema_version": "1",
+  "documents": {
+    "architecture": {
+      "path": ".claude/runtime/knowledge/architecture.md",
+      "exists": false,
+      "generated_at": null,
+      "content_hash": null,
+      "sources_consulted": [],
+      "stale": true,
+      "stale_reason": "document not yet generated"
+    },
+    "quality_posture": {
+      "path": ".claude/runtime/knowledge/quality-posture.md",
+      "exists": false,
+      "generated_at": null,
+      "content_hash": null,
+      "sources_consulted": [],
+      "stale": true,
+      "stale_reason": "document not yet generated"
+    },
+    "security_posture": {
+      "path": ".claude/runtime/knowledge/security-posture.md",
+      "exists": false,
+      "generated_at": null,
+      "content_hash": null,
+      "sources_consulted": [],
+      "stale": true,
+      "stale_reason": "document not yet generated"
+    },
+    "decisions_log": {
+      "path": ".claude/runtime/knowledge/decisions-log.md",
+      "exists": false,
+      "generated_at": null,
+      "content_hash": null,
+      "sources_consulted": [],
+      "stale": true,
+      "stale_reason": "document not yet generated"
+    }
+  },
+  "last_full_update": null
+}

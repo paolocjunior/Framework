@@ -1,6 +1,6 @@
-# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts + Behaviour Harness
+# Claude Code Quality Framework V4 + Sensores Mecânicos + Execution Contracts + Sprint Contracts + Behaviour Harness + Architecture Linters + Active Handoff + Knowledge Base
 
-Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre correção funcional, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável), **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback) e **behaviour/runtime harness** (verificação observável de comportamento em runtime — requisição real, arquivo real, JSON path real — com evidência estruturada expected-vs-actual).
+Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre correção funcional, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável), **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback), **behaviour/runtime harness** (verificação observável de comportamento em runtime — requisição real, arquivo real, JSON path real — com evidência estruturada expected-vs-actual), **architecture linters** (invariantes estruturais cross-file com exit code como autoridade), **active handoff operacional** (resumo estruturado de sessão em 6 seções para continuidade entre sessões) e **knowledge base system-of-record** (view consolidada e navegável do estado do projeto — architecture, quality, security, decisions — derivada de evidência acumulada, nunca fonte de verdade).
 
 ## Estrutura
 
@@ -10,8 +10,9 @@ projeto/
 ├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
 └── .claude/
     ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 28 checklists de qualidade
+    ├── rules/                         # 30 checklists de qualidade
     │   ├── agent-contracts.md         # Protocolo de invocação e parsing de agents
+    │   ├── architecture-linters.md    # Protocolo de architecture linters (invariantes cross-file)
     │   ├── behaviour-harness.md       # Protocolo de behaviour/runtime harness (expected-vs-actual)
     │   ├── code-review.md             # Critérios de revisão
     │   ├── context-loading.md         # Carregamento de contexto no início de commands
@@ -20,6 +21,7 @@ projeto/
     │   ├── evidence-tracing.md        # Formato de reporte
     │   ├── execution-contracts.md     # Contratos estruturados de execução por fase (upstream)
     │   ├── execution-tracking.md      # Rastreamento de fases
+    │   ├── knowledge-base.md          # Protocolo de knowledge base system-of-record
     │   ├── implementation-quality.md  # Padrões de erro em implementação
     │   ├── integration-checklist.md   # Migração mock para API real
     │   ├── kubernetes-security.md     # Segurança de Kubernetes
@@ -39,7 +41,7 @@ projeto/
     │   ├── structural-quality.md      # Qualidade estrutural
     │   ├── testing.md                 # Padrões de testes
     │   └── web-api-security.md        # Segurança web e API
-    ├── commands/                       # 24 slash commands
+    ├── commands/                       # 27 slash commands
     ├── agents/                         # 8 subagents (6 especializados + 2 transversais)
     ├── hooks/                          # 11 scripts de validação automática
     └── runtime/
@@ -53,6 +55,9 @@ projeto/
         ├── behaviours.template.json   # Template de declaração de behaviours/runtime harness
         ├── behaviours.json            # Declaração de behaviours do projeto (criado por cópia)
         ├── behaviours-last-run.json   # Veredicto estruturado expected-vs-actual (efêmero)
+        ├── architecture-linters.template.json # Template de architecture linters
+        ├── architecture-linters.json  # Declaração de linters do projeto (criado por cópia)
+        ├── architecture-linters-last-run.json # Veredicto estruturado (efêmero)
         ├── contracts.template.json    # Template de contrato de execução por fase
         ├── contracts/                 # Contratos estruturados por fase
         │   ├── active.json            # Ponteiro para contrato da fase ativa
@@ -61,6 +66,17 @@ projeto/
         │   └── sprints/               # Sprint contracts (granularidade intra-fase)
         │       └── <parent_phase_id>/ # Um diretório por fase; vínculo é filesystem-based
         │           └── <sprint_id>.json # Um arquivo por sprint (criado por /sprint-create)
+        ├── knowledge/                 # Knowledge base (view consolidada)
+        │   ├── knowledge-index.json   # Índice estruturado (staleness, hashes, fontes)
+        │   ├── architecture.md        # Mapa arquitetural (gerado por /kb-update)
+        │   ├── quality-posture.md     # Postura de qualidade (gerado por /kb-update)
+        │   ├── security-posture.md    # Postura de segurança (gerado por /kb-update)
+        │   └── decisions-log.md       # Log de decisões (gerado por /kb-update)
+        ├── knowledge.template/        # Templates skeleton dos documentos KB
+        │   ├── architecture.md
+        │   ├── quality-posture.md
+        │   ├── security-posture.md
+        │   └── decisions-log.md
         ├── baseline-feedbacks/        # Templates de feedbacks comportamentais
         └── session-summaries/         # Resumos de sessão (gerados automaticamente)
 ```
@@ -95,7 +111,7 @@ No Claude Code do projeto:
 
 | Camada | Mecanismo | Proteção |
 |--------|-----------|----------|
-| 1 — Regras | CLAUDE.md + 27 rules | Direção e padrões |
+| 1 — Regras | CLAUDE.md + 30 rules | Direção e padrões |
 | 2 — Hooks | 11 scripts automáticos | Erros objetivos (secrets, syntax, gate de implementação) |
 | 3 — Memória | Feedbacks comportamentais | Erros de julgamento |
 | 4 — Cross-model | Codex adversarial review | Blind spots da IA principal |
@@ -152,6 +168,9 @@ Princípio: **se o comando retorna 0, o sensor passou — nenhum agente pode rei
 | `/sprint-evaluate` | Executar evaluator do sprint ativo e registrar verdict append-only em `evaluation_history` |
 | `/sprint-close` | Fechar sprint com transição human-confirmed para `passed \| failed \| deferred` |
 | `/behaviour-run` | Executar behaviours declarados e produzir veredicto estruturado expected-vs-actual |
+| `/lint-architecture` | Executar architecture linters e produzir veredicto estruturado por exit code |
+| `/kb-update` | Gerar ou atualizar documentos da knowledge base a partir de evidência acumulada |
+| `/kb-status` | Verificar estado da knowledge base (existência, staleness, lacunas) — read-only |
 
 ## Subagents
 
@@ -254,5 +273,51 @@ Enquanto sensores medem correção funcional por exit code de test/lint/build/au
 4. **Consumers read-only absolutos.** `/contract-check`, `/ship-check` e `/verify-spec` leem `behaviours-last-run.json`, nunca invocam `/behaviour-run`. Execução é responsabilidade explícita do usuário — preserva determinismo e evita loops de execução acoplados.
 5. **Bidirectional binding mandatório.** AC com `verifiable_by: "behaviour"` exige `behaviour_id`; behaviour que satisfaz AC exige `contract_ref`. As duas pontas devem existir — binding gap (só um lado declarado) é lacuna informativa detectada pelos consumers.
 6. **Opt-in pattern.** Projetos sem `behaviours.json` operam em modo degradado (NO_BEHAVIOURS como lacuna informativa, não bloqueio). Declaração é responsabilidade do projeto, não inferida pelo framework.
+
+## Pós-V4 — Architecture Linters
+
+Sétimo item da fila de prioridades. Sensores cobrem correção funcional estática (exit code de test/lint/type-check/build). Behaviours cobrem comportamento runtime observável. Architecture linters fecham a lacuna complementar: **"invariantes estruturais cross-file não têm verificação declarativa"**. Um architecture linter é um comando shell que verifica um invariante arquitetural (layering, dependências circulares, convenções de naming, alinhamento type-schema) — exit code 0 = pass, qualquer outro = fail.
+
+- **1 rule nova**: `architecture-linters.md` — contrato completo (6 categorias: layering, circular-deps, cross-file, naming, type-schema-match, custom), hardening obrigatório de `command`, semântica dual severity vs obrigação contratual, staleness com aproximação por scope
+- **1 command novo**: `/lint-architecture` — executor único dos architecture linters declarados, com flags `--offline`, `--only <id>`, `--skip <id>`, `--phase <phase_id>`
+- **3 artefatos novos em runtime**: `architecture-linters.template.json` (bootstrap com 3 exemplos), `architecture-linters.json` (declaração por projeto), `architecture-linters-last-run.json` (veredicto estruturado efêmero)
+- **1 rule modificada**: `execution-contracts.md` — novo campo opcional `architecture_linters_required[]` no phase contract
+- **2 commands modificados** (consumers **read-only absolutos**):
+  - `/ship-check` — novo **Bloco 0.8** consome `architecture-linters-last-run.json`. `blocking_failures > 0` força `NÃO PRONTO`
+  - `/contract-check` — novo **Passo 7.7** valida linters listados em `architecture_linters_required[]`. Semântica dual: `severity` governa ship-check, presença no array contratual governa contract-check
+
+**Princípio:** sensores (correção funcional), behaviours (runtime observável) e architecture linters (invariantes estruturais) são **3 camadas independentes** com gates independentes. Nenhuma mascara as outras.
+
+## Pós-V4 — Active Handoff Operacional
+
+Sexto item da fila de prioridades. Corrige lacuna operacional entre sessões: o hook `session-summary.sh` passou de resumo narrativo (truncava `last_assistant_message` em 500 chars) para **handoff operacional estruturado em 6 seções** que responde perguntas concretas de continuidade (onde estamos / o que está ativo / o que acabou de acontecer / o que falta fazer / o que bloqueia / fonte de verdade).
+
+- **1 hook reescrito**: `session-summary.sh` — handoff em 6 seções com fontes citadas, ISO-8601 UTC, sem dependência de `last_assistant_message`
+- **1 artefato novo**: `contracts/active.json` — ponteiro null-safe da fase ativa (bootstrap com null)
+- **1 command modificado**: `/status-check` — referencia novo formato de 6 seções
+
+**Princípio:** handoff é **view derivada**, nunca fonte de verdade. Subordinado ao trio (ledger + snapshot + MEMORY.md). Regravado a cada Stop, não editável manualmente.
+
+## Pós-V4 — Knowledge Base System-of-Record
+
+Oitavo item da fila de prioridades derivada da análise de Harness Engineering. O framework gera evidência em 7+ camadas (hooks, sensores, contratos, sprints, behaviours, linters, handoff), mas nenhum artefato consolida essa informação em **conhecimento navegável do projeto**. A knowledge base fecha essa lacuna: 4 documentos derivados que sintetizam o estado do projeto em mapa navegável — architecture, quality-posture, security-posture, decisions-log.
+
+- **1 rule nova**: `knowledge-base.md` — protocolo completo (7 princípios, 4 tipos de documento, schema do knowledge-index.json, política de staleness com 3 critérios, 9 vedações, bootstrap)
+- **2 commands novos**:
+  - `/kb-update` — único escritor da KB. Lê artefatos-fonte (ledger, contratos, sensores, behaviours, linters, pattern-registry), sintetiza 4 documentos, aplica anti-churn por hash SHA-256 (só persiste quando conteúdo semântico muda), inclui header de rastreabilidade obrigatório
+  - `/kb-status` — read-only absoluto. Avalia existência, staleness e inconsistências entre index e filesystem
+- **6 artefatos novos em runtime**: `knowledge-index.json` (índice estruturado null-safe), 4 templates skeleton em `knowledge.template/`, diretório `knowledge/` para documentos gerados
+- **2 commands modificados** (integração **informativa, nunca gate**):
+  - `/status-check` — nova seção "Knowledge Base" com tabela de estado dos 4 documentos
+  - `/ship-check` — novo **Bloco 0.9** (informativo, não-gate) apresenta estado da KB sem afetar veredicto
+
+**Princípios:**
+
+1. **View derivada, nunca fonte de verdade.** Em caso de divergência entre KB e fontes, as fontes prevalecem e o `/kb-update` deve ser re-executado.
+2. **Mapa, não atlas.** Cada documento ~50-150 linhas. Documentos que ultrapassam ~200 linhas devem ser refatorados.
+3. **Anti-churn obrigatório.** Só persiste quando conteúdo semântico muda (hash diff). Previne diffs inúteis no Git.
+4. **Header de rastreabilidade obrigatório.** Todo documento gerado inclui `Derived from`, `Authority`, `Last semantic update`.
+5. **Não é gate.** KB é ferramenta de navegação e contexto. Nenhum veredicto de nenhum command depende da knowledge base.
+6. **Opt-in pattern.** Projetos sem KB operam normalmente. Consumers reportam ausência como lacuna informativa.
 
 Para o changelog completo, ver seção `## Changelog` no `CLAUDE.md`.
