@@ -183,7 +183,7 @@ O framework usa o Codex (OpenAI GPT-5.4) como revisor adversarial independente. 
 
 #### Preenchimento automático do AGENTS.md
 
-O Claude Code DEVE preencher a seção "Contexto do Projeto" do `AGENTS.md` automaticamente quando o `/spec-check` der READY — usando tipo, stack e objetivo extraídos da spec aprovada.
+O Claude Code DEVE preencher a seção "Contexto do Projeto" do `AGENTS.md` automaticamente quando o `/spec-check` der READY ou READY WITH ASSUMPTIONS — usando tipo, stack e objetivo extraídos da spec aprovada. Veredicto BLOCKED não autoriza o preenchimento do AGENTS.md.
 
 Se a spec mudar durante o projeto (novo módulo, mudança de stack, pivô de escopo), o Claude Code DEVE atualizar o `AGENTS.md` para refletir a mudança. O AGENTS.md deve estar sempre alinhado com a spec vigente.
 
