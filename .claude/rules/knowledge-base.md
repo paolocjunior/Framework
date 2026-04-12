@@ -15,7 +15,7 @@ A knowledge base e **opcional** e segue o mesmo padrao opt-in de sensores, behav
 3. **Derivado, nao autoritativo.** Em caso de divergencia entre a knowledge base e as fontes (ledger, contratos, sensores), as fontes prevalecem. A knowledge base deve ser regenerada para refletir as fontes, nao o contrario.
 4. **Opt-in, mesmo padrao do framework.** Projetos sem knowledge base operam normalmente. A declaracao e opcional.
 5. **Atualizacao explicita via command.** Nunca gerada automaticamente por hook. O usuario decide quando consolidar via `/kb-update`.
-6. **Idempotente e anti-churn.** `/kb-update` so persiste um documento quando o conteudo semantico mudou. Timestamps e metadata de atualizacao vivem em `knowledge-index.json`, nao nos `.md`. Isso evita diffs inuteis no Git.
+6. **Idempotente e anti-churn.** `/kb-update` so persiste um documento quando o conteudo semantico mudou. Metadata operacional detalhada (content_hash, sources_consulted, stale, stale_reason, generated_at) vive em `knowledge-index.json`. Os documentos `.md` mantem apenas o header minimo de rastreabilidade (Derived from, Authority, Last semantic update) — o anti-churn ignora a linha `Last semantic update` ao calcular o hash, evitando diffs inuteis no Git por mudanca apenas de timestamp.
 7. **Rastreabilidade obrigatoria.** Cada documento gerado inclui header padronizado com fontes consultadas e declaracao de autoridade subordinada.
 
 ## Tipos de documento
