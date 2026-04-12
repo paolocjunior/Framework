@@ -4,6 +4,9 @@
 # Runtime session data (generated during use)
 .claude/runtime/session-summaries/latest.md
 
+# Runtime gate markers (created by commands, consumed by hooks)
+.claude/runtime/.plan-approved
+
 # OS files
 .DS_Store
 Thumbs.db
