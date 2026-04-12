@@ -19,6 +19,8 @@ Sem contexto carregado, o plano pode retrabalhar o que já foi resolvido ou igno
 
 ## Vedações deste command
 
+> **Nota de design:** o frontmatter `allowed-tools` não é barreira suficiente para este caso — comportamento observado em produção mostrou que o modelo principal conseguiu editar `spec.md` mesmo sem `Edit` no frontmatter. Por isso, as proibições abaixo são instruções explícitas no body do command, que é a única defesa eficaz disponível.
+
 Este command é **read-only** em relação a todos os artefatos existentes do projeto:
 
 - **Nunca editar** `spec.md`, `execution-ledger.md`, `AGENTS.md`, código-fonte, migrations, configs ou qualquer outro arquivo já existente
