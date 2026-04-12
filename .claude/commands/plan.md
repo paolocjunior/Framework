@@ -17,6 +17,17 @@ Sem contexto carregado, o plano pode retrabalhar o que já foi resolvido ou igno
 
 ---
 
+## Vedações deste command
+
+Este command é **read-only** em relação a todos os artefatos existentes do projeto:
+
+- **Nunca editar** `spec.md`, `execution-ledger.md`, `AGENTS.md`, código-fonte, migrations, configs ou qualquer outro arquivo já existente
+- Ao encontrar bug, inconsistência ou divergência em um artefato existente durante a análise: **reportar apenas**, inserindo no plano como pré-condição explícita (ex: "Pré-condição: spec.md contém ID duplicado D-10 — corrigir manualmente antes de iniciar implementação")
+- A correção de artefatos é responsabilidade do command correspondente (`/spec-check` para spec, `/review` para código) — nunca do `/plan`
+- As únicas escritas permitidas por este command são: (a) o plano como output textual no contexto, e (b) `rm -f .claude/runtime/.plan-approved`
+
+---
+
 Antes de qualquer implementação, criar um plano estruturado:
 
 1. **Objetivo**: o que será implementado e por quê

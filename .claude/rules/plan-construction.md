@@ -115,7 +115,9 @@ Verificar que contagens no plano (endpoints, telas, tabelas, rotas) batem com o 
 
 ### Se a contagem divergir
 
-Corrigir o plano para refletir a contagem real. Se o backend tem 18 endpoints e o plano diz 12, o plano está errado — não o backend.
+Corrigir **o texto do plano em elaboração** para refletir a contagem real. Se o backend tem 18 endpoints e o plano diz 12, o número citado no plano está errado — não o backend.
+
+**Vedação:** se a divergência está em um artefato existente (spec.md com ID duplicado, ledger com contagem errada, código com comentário desatualizado), **NÃO editar o artefato**. Registrar no plano como pré-condição: `"Pré-condição: [artefato] contém [divergência X] — corrigir manualmente antes de iniciar implementação"`. A correção do artefato-fonte é responsabilidade do command correspondente (`/spec-check` para spec, `/review` para código) — nunca do `/plan`.
 
 ---
 
