@@ -2,102 +2,38 @@
 
 Framework de qualidade para projetos no Claude Code. Combina validação automática (hooks), auditorias sob demanda (slash commands e subagents), persistência de estado (trio de sincronização), validação cross-model (Codex adversarial review), **sensores mecânicos** (exit code como autoridade sobre correção funcional, não narrativa do agente), **execution contracts** (declaração upstream estruturada do que cada fase promete entregar, mecanicamente verificável), **sprint contracts** (granularidade intra-fase com evaluator determinístico por ciclos curtos de feedback), **behaviour/runtime harness** (verificação observável de comportamento em runtime — requisição real, arquivo real, JSON path real — com evidência estruturada expected-vs-actual), **architecture linters** (invariantes estruturais cross-file com exit code como autoridade), **active handoff operacional** (resumo estruturado de sessão em 6 seções para continuidade entre sessões), **knowledge base system-of-record** (view consolidada e navegável do estado do projeto — architecture, quality, security, decisions — derivada de evidência acumulada, nunca fonte de verdade) e **capability gap tracking** (registro persistente de lacunas de verificação — scanner determinístico detecta, humano decide, gaps nunca são gate).
 
-## Estrutura
+## O que copiar para um projeto novo
 
-```
-projeto/
-├── CLAUDE.md                          # Regras globais (sempre carregado pelo Claude Code)
-├── AGENTS.md                          # Instruções para o Codex (sempre carregado pelo Codex CLI)
-└── .claude/
-    ├── settings.json                  # Configuração dos hooks
-    ├── rules/                         # 31 checklists de qualidade
-    │   ├── agent-contracts.md         # Protocolo de invocação e parsing de agents
-    │   ├── architecture-linters.md    # Protocolo de architecture linters (invariantes cross-file)
-    │   ├── behaviour-harness.md       # Protocolo de behaviour/runtime harness (expected-vs-actual)
-    │   ├── capability-gaps.md         # Protocolo de capability gap tracking (registro persistente)
-    │   ├── code-review.md             # Critérios de revisão
-    │   ├── context-loading.md         # Carregamento de contexto no início de commands
-    │   ├── database-security.md       # Segurança de banco de dados
-    │   ├── design-system-quality.md   # Qualidade visual
-    │   ├── evidence-tracing.md        # Formato de reporte
-    │   ├── execution-contracts.md     # Contratos estruturados de execução por fase (upstream)
-    │   ├── execution-tracking.md      # Rastreamento de fases
-    │   ├── knowledge-base.md          # Protocolo de knowledge base system-of-record
-    │   ├── implementation-quality.md  # Padrões de erro em implementação
-    │   ├── integration-checklist.md   # Migração mock para API real
-    │   ├── kubernetes-security.md     # Segurança de Kubernetes
-    │   ├── observability.md           # Logging e diagnóstico
-    │   ├── performance.md             # Performance e recursos
-    │   ├── plan-construction.md       # Procedimento de construção de planos
-    │   ├── recommended-skills.md      # Catálogo de lacunas e skills externas
-    │   ├── review-quality.md          # Self-check interno de outputs de review
-    │   ├── security.md                # Segurança geral
-    │   ├── self-verification.md       # Padrões de verificação
-    │   ├── sensors.md                 # Protocolo de sensores mecânicos (exit code como verdade)
-    │   ├── spec-creation-guide.md     # Guia de criação de especificação
-    │   ├── spec-quality.md            # Prontidão de especificação
-    │   ├── sprint-contracts.md        # Protocolo de sprint contracts (granularidade intra-fase)
-    │   ├── state-management.md        # Gestão de estado
-    │   ├── state-sync.md              # Protocolo do trio de sincronização
-    │   ├── structural-quality.md      # Qualidade estrutural
-    │   ├── testing.md                 # Padrões de testes
-    │   └── web-api-security.md        # Segurança web e API
-    ├── commands/                       # 29 slash commands
-    ├── agents/                         # 8 subagents (6 especializados + 2 transversais)
-    ├── hooks/                          # 11 scripts de validação automática
-    └── runtime/
-        ├── execution-ledger.md        # Estado oficial do projeto
-        ├── pattern-registry.md        # Catálogo de padrões aprovados
-        ├── spec-template.md           # Template de estrutura de especificação
-        ├── project-status.template.md # Template do snapshot de memória
-        ├── sensors.template.json      # Template de declaração de sensores mecânicos
-        ├── sensors.json               # Declaração de sensores do projeto (criado por cópia)
-        ├── sensors-last-run.json      # Veredicto estruturado da última execução (efêmero)
-        ├── behaviours.template.json   # Template de declaração de behaviours/runtime harness
-        ├── behaviours.json            # Declaração de behaviours do projeto (criado por cópia)
-        ├── behaviours-last-run.json   # Veredicto estruturado expected-vs-actual (efêmero)
-        ├── architecture-linters.template.json # Template de architecture linters
-        ├── architecture-linters.json  # Declaração de linters do projeto (criado por cópia)
-        ├── architecture-linters-last-run.json # Veredicto estruturado (efêmero)
-        ├── contracts.template.json    # Template de contrato de execução por fase
-        ├── contracts/                 # Contratos estruturados por fase
-        │   ├── active.json            # Ponteiro para contrato da fase ativa
-        │   ├── active-sprint.json     # Ponteiro para sprint contract ativo
-        │   ├── phase-<id>.json        # Um arquivo por fase (criado por /contract-create)
-        │   └── sprints/               # Sprint contracts (granularidade intra-fase)
-        │       └── <parent_phase_id>/ # Um diretório por fase; vínculo é filesystem-based
-        │           └── <sprint_id>.json # Um arquivo por sprint (criado por /sprint-create)
-        ├── knowledge/                 # Knowledge base (view consolidada)
-        │   ├── knowledge-index.json   # Índice estruturado (staleness, hashes, fontes)
-        │   ├── architecture.md        # Mapa arquitetural (gerado por /kb-update)
-        │   ├── quality-posture.md     # Postura de qualidade (gerado por /kb-update)
-        │   ├── security-posture.md    # Postura de segurança (gerado por /kb-update)
-        │   └── decisions-log.md       # Log de decisões (gerado por /kb-update)
-        ├── knowledge.template/        # Templates skeleton dos documentos KB
-        │   ├── architecture.md
-        │   ├── quality-posture.md
-        │   ├── security-posture.md
-        │   └── decisions-log.md
-        ├── capability-gaps.template.json # Template de capability gaps (bootstrap)
-        ├── capability-gaps.json       # Registro persistente de gaps (criado por /gaps-scan)
-        ├── baseline-feedbacks/        # Templates de feedbacks comportamentais
-        └── session-summaries/         # Resumos de sessão (gerados automaticamente)
+O repositorio inteiro esta pronto para copiar. **Todos** os arquivos tracked sao bootstrap (vazios, null-safe ou templates) — nenhum contem estado de outro projeto.
+
+**Regra:** copie o framework-base e os arquivos bootstrap. Nao copie estado/historico gerado de outro projeto.
+
+### Passo a passo
+
+```bash
+# 1. Clone o framework (ou baixe o zip)
+git clone <url-do-repositorio> framework-source
+
+# 2. Copie para a raiz do seu projeto
+cp framework-source/CLAUDE.md    seu-projeto/
+cp framework-source/AGENTS.md    seu-projeto/
+cp -r framework-source/.claude   seu-projeto/
+cp framework-source/.gitignore   seu-projeto/   # se o projeto ainda nao tem
+
+# 3. Edite o AGENTS.md preenchendo a secao "Contexto do Projeto"
+
+# 4. Pronto — abra o projeto no Claude Code
 ```
 
-## Instalação
+### Requisito: jq
 
-### 1. Instalar no projeto
-
-1. Copiar `CLAUDE.md`, `AGENTS.md` e a pasta `.claude` para a raiz do projeto
-2. Editar o `AGENTS.md` preenchendo a seção "Contexto do Projeto"
-
-### 2. Requisito: jq
+Varios hooks dependem de `jq` para parsear JSON do stdin. Instalar antes de usar:
 
 ```cmd
 winget install jqlang.jq
 ```
 
-### 3. Setup do Codex (Camada 4)
+### Setup do Codex (Camada 4 — opcional)
 
 ```bash
 npm install -g @openai/codex        # Instalar Codex CLI
@@ -109,6 +45,82 @@ No Claude Code do projeto:
 /install-plugin openai/codex-plugin-cc
 /reload-plugins
 ```
+
+## Estrutura do repositorio
+
+O diagrama abaixo mostra **exatamente o que esta no repositorio** (e que voce copia para um projeto novo). Arquivos gerados durante o uso do projeto **nao estao aqui** — sao listados na secao seguinte.
+
+```
+projeto/
+├── CLAUDE.md                          # Regras globais (sempre carregado pelo Claude Code)
+├── AGENTS.md                          # Template para o Codex (preencher por projeto)
+├── .gitignore                         # Protege arquivos efemeros de commit acidental
+└── .claude/
+    ├── settings.json                  # Configuracao dos hooks
+    ├── rules/                         # 31 checklists de qualidade
+    ├── commands/                      # 29 slash commands
+    ├── agents/                        # 8 subagents (6 especializados + 2 transversais)
+    ├── hooks/                         # 11 scripts de validacao automatica
+    └── runtime/
+        ├── execution-ledger.md        # Bootstrap: tabelas vazias, status NOT STARTED
+        ├── pattern-registry.md        # Bootstrap: header + template, zero padroes
+        ├── spec-template.md           # Template de estrutura de especificacao
+        ├── project-status.template.md # Template do snapshot de memoria
+        │
+        │  # Templates — copiar para arquivo sem .template no nome ao configurar
+        ├── sensors.template.json              # Template de sensores mecanicos
+        ├── behaviours.template.json           # Template de behaviours/runtime harness
+        ├── architecture-linters.template.json # Template de architecture linters
+        ├── contracts.template.json            # Template de contrato de execucao
+        ├── sprint-contracts.template.json     # Template de sprint contract
+        ├── capability-gaps.template.json      # Template de capability gaps
+        │
+        │  # Ponteiros null-safe — existem desde o dia zero para evitar erro de leitura
+        ├── contracts/
+        │   ├── active.json            # {active_phase_id: null, ...}
+        │   ├── active-sprint.json     # {active_sprint_id: null, ...}
+        │   ├── .gitkeep
+        │   └── sprints/
+        │       └── .gitkeep
+        │
+        │  # Knowledge base — indice null-safe, templates de esqueleto
+        ├── knowledge/
+        │   └── knowledge-index.json   # Todos os docs: exists=false, stale=true
+        ├── knowledge.template/
+        │   ├── architecture.md
+        │   ├── quality-posture.md
+        │   ├── security-posture.md
+        │   └── decisions-log.md
+        │
+        │  # Feedbacks de referencia (templates, nao feedbacks reais)
+        ├── baseline-feedbacks/
+        │
+        │  # Diretorio para resumos de sessao (vazio no bootstrap)
+        └── session-summaries/
+            └── .gitkeep
+```
+
+### Arquivos gerados durante o uso (NAO estao no repositorio)
+
+Estes arquivos sao criados por commands e hooks durante o uso do projeto. O `.gitignore` ja protege os efemeros. Os demais sao commitados no projeto quando criados.
+
+| Arquivo | Criado por | Commitavel? |
+|---------|-----------|-------------|
+| `sensors.json` | Copia manual do template | Sim — versionado com o projeto |
+| `behaviours.json` | Copia manual do template | Sim |
+| `architecture-linters.json` | Copia manual do template | Sim |
+| `capability-gaps.json` | `/gaps-scan` | Sim |
+| `contracts/phase-<id>.json` | `/contract-create` | Sim |
+| `contracts/sprints/<phase>/<sprint>.json` | `/sprint-create` | Sim |
+| `knowledge/architecture.md` | `/kb-update` | Sim |
+| `knowledge/quality-posture.md` | `/kb-update` | Sim |
+| `knowledge/security-posture.md` | `/kb-update` | Sim |
+| `knowledge/decisions-log.md` | `/kb-update` | Sim |
+| `sensors-last-run.json` | `/sensors-run` | **Nao** — efemero, no .gitignore |
+| `behaviours-last-run.json` | `/behaviour-run` | **Nao** — efemero, no .gitignore |
+| `architecture-linters-last-run.json` | `/lint-architecture` | **Nao** — efemero, no .gitignore |
+| `session-summaries/latest.md` | Hook `session-summary.sh` | **Nao** — efemero, no .gitignore |
+| `.plan-approved` | `/plan-review` | **Nao** — marker efemero, no .gitignore |
 
 ## Modelo de 4 Camadas
 

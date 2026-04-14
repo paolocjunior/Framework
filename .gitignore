@@ -1,21 +1,35 @@
-# Local settings (session-specific permissions)
+# ============================================================
+# Framework — arquivos que NÃO devem ser commitados
+# ============================================================
+# Este .gitignore é copiado junto com o framework para cada
+# projeto novo. Protege contra commit acidental de arquivos
+# efêmeros gerados durante o uso.
+# ============================================================
+
+# --- Configurações locais ---
 .claude/settings.local.json
 
-# Runtime session data (generated during use)
+# --- Arquivos efêmeros de runtime (gerados por commands) ---
+# Veredictos de última execução (gerados por /sensors-run, /behaviour-run, /lint-architecture)
+.claude/runtime/sensors-last-run.json
+.claude/runtime/behaviours-last-run.json
+.claude/runtime/architecture-linters-last-run.json
+
+# Handoff de sessão (gerado pelo hook session-summary.sh a cada Stop)
 .claude/runtime/session-summaries/latest.md
 
-# Runtime gate markers (created by commands, consumed by hooks)
+# Marker de gate (criado por /plan-review, consumido por hook)
 .claude/runtime/.plan-approved
 
-# OS files
+# --- OS ---
 .DS_Store
 Thumbs.db
 
-# Node (if docx generation is run locally)
+# --- Node (se geração de docx rodar localmente) ---
 node_modules/
 package.json
 package-lock.json
 
-# Temp files
+# --- Temp ---
 *.tmp
 /tmp/
