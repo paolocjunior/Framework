@@ -37,9 +37,9 @@ Antes de qualquer implementação, criar um plano estruturado:
 3. **Abordagem**: como será implementado, passo a passo
 4. **Arquivos afetados**: lista explícita de todos os arquivos que serão criados, modificados ou deletados — com ação (CRIAR/MODIFICAR/DELETAR) e responsabilidade de cada um
 5. **Justificativa**: por que esta abordagem e não alternativas
-6. **Riscos**: o que pode dar errado e como mitigar
-7. **Critérios de sucesso**: como verificar que ficou correto
-8. **Estimativa**: quantidade de arquivos e mudanças envolvidas
+6. **Riscos e mitigações**: o que pode dar errado e como prevenir
+7. **Critérios de verificação**: como confirmar que a implementação está correta
+8. **Estimativa e Ordem de execução**: quantidade de arquivos e mudanças envolvidas + sequência recomendada de implementação
 
 Apresentar o plano e aguardar aprovação ANTES de implementar qualquer código.
 
