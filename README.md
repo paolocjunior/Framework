@@ -359,4 +359,4 @@ Nono e último item da fila de prioridades derivada da análise de Harness Engin
 5. **Coexistência com `/skills-gap`.** `/skills-gap` = análise qualitativa humana. `/gaps-scan` = detecção mecânica objetiva. Domínios complementares sem sobreposição.
 6. **Opt-in pattern.** Projetos sem `capability-gaps.json` operam normalmente. Consumers reportam ausência como lacuna informativa.
 
-Para o changelog completo, ver seção `## Changelog` no `CLAUDE.md`.
+Para o changelog completo, ver [`.claude/reference/CHANGELOG.md`](.claude/reference/CHANGELOG.md).
