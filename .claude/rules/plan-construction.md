@@ -4,12 +4,13 @@
 
 Esta rule define o self-check interno que o `/plan` e o agent `planner` executam ao CONSTRUIR um plano.
 Para verificacao formal e independente de um plano ja finalizado, usar o command `/plan-review`.
+Total de passos: 11.
 
 ## Propósito
 
 Definir o procedimento que o Claude Code deve executar antes de finalizar um plano de implementação. Este procedimento complementa `.claude/rules/implementation-quality.md` (que define o que pode estar errado) com instruções de como encontrar e corrigir problemas antes de apresentar o plano.
 
-O Claude Code deve executar estes 8 passos ao criar planos via `/plan` ou via o agent `planner`.
+O Claude Code deve executar estes 11 passos ao criar planos via `/plan` ou via o agent `planner`.
 
 ---
 
@@ -24,10 +25,11 @@ Para cada type definido no plano, comparar com a especificação/micro do módul
 - Campos opcionais vs obrigatórios estão corretos para todas as variantes?
 - Existe campo obrigatório que não se aplica a alguma variante do type?
 - Se a spec define snapshot ou cache, o type inclui esses campos?
+- O plano reproduz decisões da spec **literalmente** (nomes, comportamentos, políticas)? Se a spec diz "preservar arquivo corrompido e criar novo", o plano não pode dizer "reinicializar com []" — isso é regressão de spec, não simplificação.
 
 ### Se a resposta for "não"
 
-Corrigir o type antes de finalizar o plano. Não apresentar plano com type divergente da spec.
+Corrigir o type antes de finalizar o plano. Não apresentar plano com type divergente da spec. Se a divergência é intencional (decisão técnica legítima), documentar explicitamente como desvio justificado na seção de Justificativa do plano — nunca alterar silenciosamente uma decisão da spec.
 
 ---
 
@@ -131,10 +133,12 @@ Verificar que a seção de verificação/checklist do plano não promete nada qu
 - Há fluxo mencionado na verificação que não tem tela, componente, type ou mock correspondente?
 - Há funcionalidade prometida na verificação que está no "Fora do Escopo"?
 - Há componente mencionado como "dual mode" na verificação sem que o fluxo de edição esteja definido no corpo?
+- Há resultado esperado não-determinístico na verificação? Expressões como "200 ou 204", "retorna X ou Y", "pode ser A ou B" não são mecanicamente verificáveis — escolher um valor exato ou definir regra precisa de quando cada valor se aplica
+- Há fork de implementação não resolvido no plano? Expressões como "usar A ou B", "via X ou dependência Y", "decidir durante implementação" deixam ambiguidade que afeta a arquitetura (ex: fixtures de teste, conftest.py, imports). Cada fork deve ser resolvido no plano, não delegado ao implementador
 
 ### Se a resposta for "não"
 
-Remover o item da verificação, ou expandir o corpo do plano para incluir a definição ausente. Nunca apresentar verificação que prometa algo não modelado.
+Remover o item da verificação, ou expandir o corpo do plano para incluir a definição ausente. Nunca apresentar verificação que prometa algo não modelado. Para resultados não-determinísticos e forks, resolver antes de apresentar o plano — não são decisões de implementação, são decisões de design.
 
 ---
 
@@ -155,15 +159,78 @@ Criar o arquivo designado e listar suas responsabilidades explicitamente no plan
 
 ---
 
+## Passo 9 — Scope Creep vs Spec
+
+Verificar que o plano não puxa funcionalidades de versões futuras (v2, v3, "Fora do Escopo") para o escopo atual.
+
+### Perguntas obrigatórias
+
+- O plano inclui funcionalidade que a spec classifica como v2, "Fora do Escopo" ou "Implementar depois"?
+- O plano adiciona capacidade, fluxo, integração ou campo que a spec não menciona em nenhuma versão?
+- O plano implementa variante ou opção que a spec lista como futura (ex: "filtros avançados na v2" mas o plano inclui filtros)?
+- Se o plano cobre múltiplas fases, cada fase inclui apenas o que a spec atribui àquela fase?
+
+### Se a resposta for "sim"
+
+Remover a funcionalidade do escopo do plano ou mover para seção explícita "Fora do escopo deste plano — previsto para fase/versão futura". Não incluir implementação de itens futuros "por conveniência" ou "porque já estamos aqui".
+
+**Princípio:** o plano implementa exatamente o que a spec aprovou para a versão/fase atual. Scope creep silencioso é o padrão de erro mais comum em planos — o implementador aceita o escopo expandido sem perceber que saiu do contrato.
+
+---
+
+## Passo 10 — IDs e Referências Cruzadas
+
+Verificar que todo ID citado no plano (requisitos, decisões, deliverables, cenários de teste) existe na spec e é usado corretamente.
+
+### Perguntas obrigatórias
+
+- Para cada ID de requisito citado no plano (ex: `DATA-02`, `AUTH-01`), o ID existe na spec com esse exato código?
+- O conteúdo associado ao ID no plano bate com o conteúdo da spec? (ex: se o plano diz "D-14: filtro por data", a spec diz a mesma coisa para D-14?)
+- Há IDs no plano que não existem na spec (inventados durante o planejamento)?
+- Há IDs da spec relevantes para o escopo do plano que não foram referenciados?
+
+### Se a resposta for "não"
+
+Corrigir o ID ou a referência no plano. Se o ID não existe na spec, remover a referência ou registrar como pré-condição: `"Pré-condição: spec não define ID X — definir antes de iniciar implementação"`. Nunca inventar IDs que não estão na spec — isso cria rastreabilidade falsa.
+
+---
+
+## Passo 11 — Fidelidade Literal à Spec
+
+Verificar que o plano não enfraquece, altera ou reinterpreta decisões explícitas da spec.
+
+### Perguntas obrigatórias
+
+- Para cada comportamento descrito no plano que corresponde a uma regra ou decisão da spec, o plano reproduz a decisão **literalmente**?
+- Há caso onde a spec define comportamento X mas o plano implementa comportamento Y (mais simples, diferente, ou contraditório)?
+- Há decisão da spec (marcada com ID de decisão, D-XX) que o plano ignora ou contradiz?
+- Há caso onde o plano "simplifica" uma regra da spec de forma que muda o comportamento observável?
+
+### Se a resposta for "sim"
+
+Se a divergência é **acidental** (o plano não percebeu a decisão da spec): corrigir o plano para alinhar com a spec.
+
+Se a divergência é **intencional** (razão técnica legítima para diferir): documentar explicitamente na seção de Justificativa do plano como desvio declarado: `"Desvio da spec [ID]: spec diz X, plano implementa Y porque [razão técnica]"`. O desvio é apresentado ao usuário para aprovação — nunca aplicado silenciosamente.
+
+**Princípio:** a spec é o contrato aprovado. O plano é a execução do contrato. Mudar o contrato silenciosamente durante a execução é a definição de regressão de spec.
+
+---
+
 ## Formato de saída
 
 Ao executar esta verificação, o Claude Code não precisa reportar cada passo explicitamente ao usuário. Deve apenas:
 
-1. Executar os 8 passos internamente antes de finalizar o plano
+1. Executar os 11 passos internamente antes de finalizar o plano
 2. Corrigir problemas encontrados antes de apresentar
 3. Se houver problema que dependa de decisão do usuário, apresentar o problema com opções antes de finalizar o plano
 
 O objetivo é que o plano apresentado ao usuário já esteja limpo — não que o usuário receba um relatório de verificação junto com o plano.
+
+### Prioridade dos passos
+
+- **Passos 9-11** (scope creep, IDs, fidelidade literal) são a primeira defesa contra regressão de spec — se falharem, o plano implementa algo diferente do que foi aprovado, independente de como os passos 1-8 ficaram
+- **Passos 1-8** garantem consistência interna do plano
+- **Ambos os grupos** devem passar antes de apresentar
 
 ---
 

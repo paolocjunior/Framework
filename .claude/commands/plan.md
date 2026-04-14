@@ -35,17 +35,20 @@ Antes de qualquer implementação, criar um plano estruturado:
 1. **Objetivo**: o que será implementado e por quê
 2. **Contexto**: arquivos e módulos afetados (listar após explorar o projeto)
 3. **Abordagem**: como será implementado, passo a passo
-4. **Justificativa**: por que esta abordagem e não alternativas
-5. **Riscos**: o que pode dar errado e como mitigar
-6. **Critérios de sucesso**: como verificar que ficou correto
-7. **Estimativa**: quantidade de arquivos e mudanças envolvidas
+4. **Arquivos afetados**: lista explícita de todos os arquivos que serão criados, modificados ou deletados — com ação (CRIAR/MODIFICAR/DELETAR) e responsabilidade de cada um
+5. **Justificativa**: por que esta abordagem e não alternativas
+6. **Riscos**: o que pode dar errado e como mitigar
+7. **Critérios de sucesso**: como verificar que ficou correto
+8. **Estimativa**: quantidade de arquivos e mudanças envolvidas
 
 Apresentar o plano e aguardar aprovação ANTES de implementar qualquer código.
 
 Se o plano for aprovado com alterações, atualizar o plano e reapresentar.
 
+Se o projeto usa o framework (possui `.claude/runtime/`) e o plano envolve testes ou validações mecânicas, incluir nota sobre bootstrap de sensores/behaviours quando `sensors.json` ou `behaviours.json` não existirem. Não presumir que existem — verificar e sugerir criação como passo do plano quando ausentes.
+
 Consultar `.claude/rules/implementation-quality.md` para evitar padrões de erro recorrentes ao criar planos.
-Executar os 8 passos de `.claude/rules/plan-construction.md` antes de finalizar o plano.
+Executar os 11 passos de `.claude/rules/plan-construction.md` antes de finalizar o plano.
 
 ## Avaliação condicional de risco
 
@@ -92,7 +95,7 @@ Isso garante que o hook `pre-implementation-gate.sh` bloqueie código-fonte até
 ## Codex Adversarial Review (Camada 4)
 
 Após apresentar o plano ao usuário, invocar `/codex:adversarial-review` passando como focus text:
-- O plano completo (todos os elementos 1-7)
+- O plano completo (todos os elementos 1-8)
 - A spec relevante (ou as seções mais críticas para o plano)
 - Instrução: "Valide o plano contra a spec e a viabilidade técnica. Identifique: (1) inconsistências entre plano e spec, (2) riscos não declarados na seção de riscos, (3) dependências circulares entre fases, (4) suposições não verificadas sobre o código existente"
 

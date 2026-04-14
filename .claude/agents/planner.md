@@ -45,4 +45,4 @@ Consultar conforme o contexto da feature sendo planejada:
 - `.claude/rules/observability.md` — ao planejar features com integração, operação em produção, background jobs ou fluxo crítico
 - `.claude/rules/execution-tracking.md` — ao dividir implementação em fases, registrar no ledger
 - `.claude/rules/implementation-quality.md` — padrões de erro a evitar ao criar planos de implementação
-- `.claude/rules/plan-construction.md` — procedimento de construção e self-check antes de finalizar planos
+- `.claude/rules/plan-construction.md` — procedimento de construção e self-check (11 passos) antes de finalizar planos
