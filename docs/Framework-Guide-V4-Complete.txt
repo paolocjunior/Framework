@@ -1,0 +1,1024 @@
+🛡️
+Framework de Qualidade
+para Claude Code
+Guia Pratico para Comecar Hoje
+Versao 4+
+📘 do zero ao primeiro projeto seguro
+🎯   🔒   🚀   ✅   🧠   🔧
+plano • seguranca • velocidade • validacao • memoria • automacao
+9 camadas de verificação • 30 commands • 8 agents • 12 hooks
+4 camadas de defesa • 30+ rules • 16+ artefatos de runtime
+Abril 2026
+👋 Bem-vindo(a)!
+Se voce chegou ate aqui, provavelmente quer usar o Claude Code para construir software — e quer fazer isso direito, sem acidentes, sem retrabalho, sem bugs escondidos que aparecem so em producao.
+Este guia foi escrito pensando em voce. Nao importa se voce e desenvolvedor experiente, iniciante curioso ou gerente que so quer entender como funciona — aqui voce encontra o framework completo explicado do jeito mais simples possivel.
+🎯 O que este guia vai te ensinar
+Como configurar o framework, como usar cada comando no dia a dia, o que acontece automaticamente enquanto voce trabalha, e como tudo se conecta para produzir codigo de qualidade senior de forma consistente.
+💡 Para quem e este guia
+Para qualquer pessoa que queira usar o Claude Code com um fluxo de trabalho estruturado. Voce nao precisa entender os detalhes internos — basta seguir os passos e o framework faz o trabalho pesado de garantir qualidade.
+📚 O que voce vai encontrar neste guia
+#
+Secao
+O que tem la
+1
+🏁 O que e o framework
+Visao geral em 2 minutos
+2
+⚙️ Instalacao
+Como colocar no seu projeto
+3
+🗺️ O fluxo completo
+Do zero ao produto entregue
+4
+🧭 Os 12 passos do dia a dia
+Passo a passo com exemplo real
+5
+🤖 O que acontece automaticamente
+Hooks que vigiam tudo por voce
+6
+🛡️ As 4 camadas de defesa
+Como o framework te protege
+7
+🔧 Comandos que voce usa
+Tabela completa (30 commands)
+8
+🧠 Agentes que te ajudam
+Quem faz o que nos bastidores
+9
+📜 As regras do jogo
+O que o framework impede
+10
+📡 Camadas avancadas
+Sensores, contratos, behaviours, linters, KB, gaps
+11
+📁 Runtime e persistencia
+Artefatos e onde vivem
+12
+🎬 Cenarios praticos
+Situacoes reais e como resolver
+13
+❓ Perguntas frequentes
+Tira-duvidas rapido
+14
+🗂️ Cartao de referencia
+Para imprimir e deixar ao lado
+15
+📖 Glossario
+Todos os termos explicados
+1. 🏁 O que e o framework
+Imagine um colega senior experiente sentado ao seu lado enquanto voce programa. Ele te lembra de planejar antes de codar, revisa seu trabalho, aponta problemas de seguranca, documenta suas decisoes e impede que voce esqueca de rodar testes.
+Agora imagine que esse colega nunca fica cansado, nunca esquece nada e funciona 24 horas por dia, em qualquer projeto seu. Esse e o framework.
+🎯 O framework transforma o Claude Code de um assistente que &apos;faz codigo&apos; em um parceiro que &apos;entrega software com qualidade senior&apos; — guiado por regras, verificado por camadas e validado por uma segunda IA independente.
+🧱 Os 4 pilares
+Pilar
+O que faz
+📋
+Regras
+Dizem ao Claude Code como pensar e agir. Vivem em arquivos .md e sao carregadas automaticamente.
+⚡
+Hooks
+Scripts que rodam sozinhos antes e depois de cada edicao. Bloqueiam erros obvios.
+🧠
+Memoria
+Guarda o historico do projeto entre sessoes. Nada se perde quando voce fecha o terminal.
+🔍
+Cross-review
+Uma segunda IA (Codex) revisa o trabalho do Claude Code de forma independente.
+🎁 O que voce ganha
+Beneficio
+✅
+Planejamento obrigatorio antes de codar
+✅
+Revisao de seguranca em cada edicao
+✅
+Testes e cobertura verificados automaticamente
+✅
+Decisoes documentadas sem esforco
+✅
+Duas IAs checando seu trabalho
+✅
+Memoria persistente entre sessoes
+✅
+Menos bugs, menos retrabalho, menos surpresas
+✅
+9 camadas de verificacao mecanica (sensores, linters, behaviours...)
+2. ⚙️ Instalacao
+A instalacao e simples: voce copia a pasta do framework para o seu projeto e esta pronto. O Claude Code detecta automaticamente os arquivos e passa a seguir as regras.
+📥 Passo a passo
+Passo
+Acao
+Detalhe
+1
+📦 Baixe o framework
+Clone o repositorio do framework ou baixe o ZIP. Ele contem a pasta .claude/ completa com tudo que voce precisa.
+2
+📂 Copie 3 itens para o seu projeto
+Copie para a raiz do seu projeto: (1) a pasta .claude/ inteira, (2) o arquivo CLAUDE.md e (3) o arquivo AGENTS.md. Esses 3 sao obrigatorios.
+3
+⚠️ Limpe arquivos residuais
+Se veio o arquivo .claude/settings.local.json, DELETE-o (contem permissoes do projeto anterior). Se veio .claude/runtime/.plan-approved, DELETE-o tambem. Esses arquivos sao gerados em tempo de execucao e nao devem ser copiados entre projetos.
+4
+🔑 De permissao aos scripts
+No Linux ou Mac, rode chmod +x .claude/hooks/*.sh para que os scripts possam ser executados. No Windows com Git Bash, o framework ja cuida disso.
+5
+💻 Abra o Claude Code
+Abra o terminal na pasta do projeto e inicie o Claude Code. Ele vai carregar automaticamente as regras e ativar os hooks.
+6
+✅ Verifique se esta tudo certo
+Na primeira mensagem, digite /status-check. Se aparecer um resumo do estado do projeto, deu certo.
+🔧 Dependencia importante
+⚠️ O framework usa a ferramenta jq para processar dados dos hooks. A maioria dos sistemas ja tem, mas se o framework reclamar, instale com: apt install jq (Linux), brew install jq (Mac) ou baixe do site oficial (Windows).
+🌐 Revisor externo (opcional mas recomendado)
+Para ativar a segunda IA revisora (Codex/GPT-5.4), siga estes passos:
+Instale o Codex CLI: npm install -g @openai/codex
+Faca login: codex login
+Instale o plugin no Claude Code: /install-plugin openai/codex-plugin-cc
+Recarregue: /reload-plugins
+Configure o AGENTS.md na raiz do projeto (template incluido no framework)
+💡 Sem o Codex você ainda tem o framework completo, mas perde a camada de validação cross-model (Camada 4). O framework preenche o AGENTS.md automaticamente quando o /spec-check dá READY ou READY WITH ASSUMPTIONS.
+📡 Sensores — Configuracao inicial
+Sensores sao verificacoes mecanicas (testes, lint, build) que o framework executa. Para configura-los:
+Copie .claude/runtime/sensors.template.json para .claude/runtime/sensors.json
+Edite para refletir a stack real do seu projeto (remova sensores nao aplicaveis)
+Rode /sensors-run apenas quando os comandos declarados ja forem executaveis — em projetos sem codigo ainda, execute o baseline apos o bootstrap minimo da stack
+Comite sensors.json no repositorio
+💡 Projetos sem sensors.json operam em modo degradado — o framework funciona, mas reporta a ausencia como lacuna.
+3. 🗺️ O fluxo completo
+Todo projeto no framework passa por 5 grandes fases. Cada fase tem um comando que voce usa para avancar. Entre as fases, existem portoes de verificacao — se algo esta errado, o framework nao deixa voce passar.
+🎯 A jornada em 5 fases
+Fase
+Comandos
+O que acontece
+1️⃣
+Especificar
+/spec-create → /spec-check
+Voce descreve o que quer. O framework transforma em documento rigoroso.
+2️⃣
+Planejar
+/plan → /plan-review
+O framework desenha como construir, e outra camada verifica o plano.
+3️⃣
+Implementar
+codigo + /review
+Voce escreve codigo. O framework revisa e aponta melhorias.
+4️⃣
+Auditar
+/audit + variantes
+Analise profunda de seguranca, banco, web, kubernetes.
+5️⃣
+Entregar
+/verify-spec → /ship-check
+Confirma que o prometido foi entregue e esta pronto para sair.
+🚦 Os portoes de verificacao
+Entre as fases existem checkpoints que o framework impoe. Voce nao pode pular — eles garantem que o trabalho esta consistente antes de avancar.
+Portao
+Quando
+O que checa
+🚪 Portao 1
+Depois do /spec-create
+Spec esta clara, completa e sem ambiguidades bloqueantes
+🚪 Portao 2
+Depois do /plan
+O /plan-review aprova o plano. Hook BLOQUEIA codigo sem esse OK
+🚪 Portao 3
+Durante implementacao
+Cada edicao passa por hooks que checam secrets, sintaxe, padroes
+🚪 Portao 4
+Antes da entrega
+O /ship-check faz pente fino em build, testes, seguranca e riscos
+spec-create  ➡️  spec-check  ➡️  plan  ➡️  plan-review  ➡️  implementar  ➡️  review/audit  ➡️  verify-spec  ➡️  ship-check
+4. 🧭 Os 12 passos do dia a dia
+Aqui esta o fluxo completo, passo a passo. Siga na ordem e o framework garante o resto.
+📝 Cada passo tem 3 blocos: 👤 o que VOCE faz, 🤖 o que o FRAMEWORK faz, e ✅ como saber que FUNCIONOU. Se voce esta comecando, so siga a coluna VOCE — o resto acontece sozinho.
+Passo 1 — 📝 Criar a especificacao
+Tudo comeca descrevendo o que voce quer construir. Nao precisa ser tecnico.
+Quem
+O que
+👤 Voce
+Digita /spec-create e responde as perguntas sobre o produto que quer construir.
+🤖 Framework
+Faz perguntas guiadas sobre objetivo, publico, telas, dados, regras de negocio e escopo. No final, gera documento estruturado.
+✅ Sinal de OK
+Apareceu especificacao completa com requisitos numerados (AUTH-01, TASK-02), telas, modelo de dados e criterios de aceite.
+💡 Voce pode comecar com algo simples: &apos;Quero criar um site para controlar financas pessoais.&apos; O framework faz o resto.
+Passo 2 — 🔎 Validar a especificacao
+Quem
+O que
+👤 Voce
+Digita /spec-check.
+🤖 Framework
+Lê a spec, procura lacunas, classifica cada problema e dá veredicto: READY, READY WITH ASSUMPTIONS ou BLOCKED.
+✅ Sinal de OK
+Veredicto READY ou READY WITH ASSUMPTIONS. Se vier BLOCKED, lista exatamente o que precisa ser resolvido antes de implementar.
+⚠️ Se der BLOCKED: não tente contornar. Responda às perguntas e rode /spec-check de novo. Cada ambiguidade ignorada vira um bug futuro.
+Passo 3 — 🎨 Escolher o visual (se tem UI)
+Quem
+O que
+👤 Voce
+Digita /design-preview e depois /ui-plan.
+🤖 Framework
+Gera opcoes de paleta, tipografia, espacamento, componentes base. Voce escolhe e o framework congela o padrao visual.
+✅ Sinal de OK
+Design System aprovado. Telas futuras seguem automaticamente essa identidade visual.
+Passo 4 — 🗺️ Planejar a implementacao
+Quem
+O que
+👤 Voce
+Digita /plan.
+🤖 Framework
+Executa o pre-check obrigatorio (OIs antes_do_plan e artefatos prometidos pela spec), desenha o plano completo e, quando o Codex esta configurado, roda revisao adversarial antes de apresentar. O que voce ve ja e o plano pos-Codex, com Delta pos-Codex quando houver findings.
+✅ Sinal de OK
+Plano apresentado no chat. Voce le, aprova ou pede ajustes.
+🎯 Mesmo para mudancas simples, o plano e obrigatorio. Essa disciplina evita os erros mais comuns.
+Passo 5 — ✅ Revisar o plano
+Quem
+O que
+👤 Voce
+Digita /plan-review.
+🤖 Framework
+Chama dois agentes em paralelo: um compara plano com spec, outro checa coerência interna. Devolve APPROVED, APPROVED_WITH_CORRECTIONS, NEEDS_REVISION ou NEEDS_HUMAN_REVIEW, com findings BLOCKING, NON-BLOCKING ou EDITORIAL. Quando aplicável, inclui APPLICABLE_DELTA para orientar correções diretamente aplicáveis.
+✅ Sinal de OK
+Plano APPROVED ou APPROVED_WITH_CORRECTIONS. O framework cria marker .plan-approved que libera o próximo passo. NEEDS_REVISION ou NEEDS_HUMAN_REVIEW não liberam implementação.
+⚠️ Portao mecanico: um hook BLOQUEIA criacao de codigo enquanto o plano nao for aprovado pelo /plan-review. Nao e sugestao — e impedimento real.
+Passo 6 — ⌨️ Implementar o codigo
+Quem
+O que
+👤 Voce
+Pede &apos;implemente a Fase 1 do plano&apos; ou equivalente.
+🤖 Framework
+Escreve codigo arquivo por arquivo. A cada edicao, hooks rodam automaticamente checando sintaxe, secrets, padroes, design tokens, qualidade.
+✅ Sinal de OK
+Arquivos criados sem alertas dos hooks. Codigo sintaticamente valido e sem problemas obvios.
+Passo 7 — 🔍 Revisar o codigo
+Quem
+O que
+👤 Voce
+Digita /review.
+🤖 Framework
+Chama em paralelo: revisor de codigo (qualidade senior), auditor de seguranca (vulnerabilidades) e auditor de QA (cobertura de testes).
+✅ Sinal de OK
+Review publicado com findings classificados por gravidade (CRITICO, ALTO, MEDIO, BAIXO).
+Passo 8 — 🛡️ Auditoria profunda (quando aplicavel)
+Comando
+Foco
+/audit
+Auditoria geral de seguranca e qualidade
+/db-audit
+Foco em banco de dados: queries, indices, seguranca, integridade
+/web-audit
+Foco em APIs web: autenticacao, autorizacao, XSS, CSRF, CORS
+/k8s-audit
+Foco em Kubernetes: privilegios, network policies, secrets, RBAC
+💡 Nao precisa rodar todas. Use /audit como padrao. Adicione as variantes conforme o projeto.
+Passo 9 — 🩹 Corrigir o que apareceu
+Quem
+O que
+👤 Voce
+Pede ao Claude Code para corrigir os findings, comecando pelos mais graves.
+🤖 Framework
+Aplica os fixes. Cada correcao passa pelos hooks novamente. Depois do fix, busca o mesmo padrao em TODO o projeto para evitar fix parcial.
+✅ Sinal de OK
+Todos os CRITICOS e ALTOS corrigidos. Re-rodar /review confirma que os findings foram resolvidos.
+Passo 10 — 📝 Documentar as decisoes
+Quem
+O que
+👤 Voce
+Digita /justify.
+🤖 Framework
+Gera bloco formatado com as justificativas tecnicas: decisao, alternativas rejeitadas, motivo.
+✅ Sinal de OK
+Decisoes importantes viraram patrimonio do projeto.
+Passo 11 — 🎯 Verificar contra a especificacao
+Quem
+O que
+👤 Voce
+Digita /verify-spec.
+🤖 Framework
+Compara cada requisito da spec com o código. Marca MATCH, PARCIAL ou MISS. Usa sensores, behaviours e contratos como evidência mecânica. Para tokens marcados como [literal], grep é apenas sinal inicial: a conformidade exige binding rastreável ao comportamento verificado.
+✅ Sinal de OK
+Todos os requisitos v1 marcados como MATCH.
+Passo 12 — 🚀 Checagem final de entrega
+Quem
+O que
+👤 Voce
+Digita /ship-check.
+🤖 Framework
+Checa: build, testes, lint, secrets, config, dependencias, observabilidade, performance. Valida sensores, contratos, behaviours, linters, KB e gaps. Chama risco final.
+✅ Sinal de OK
+Veredicto PRONTO. Se PRONTO COM RESSALVAS, voce decide. Se NAO PRONTO, corrige antes.
+🎉 Chegou no veredicto PRONTO? Esta pronto para distribuir! O framework garantiu que o projeto passou por todas as camadas de qualidade.
+5. 🤖 O que acontece automaticamente
+Enquanto você trabalha, o framework tem 12 scripts rodando automaticamente. Você não precisa chamar nenhum deles — eles se ativam sozinhos no momento certo.
+⏰ Quando cada um dispara
+Momento
+Quando dispara
+O que acontece
+🚀 Inicio da sessao
+Quando abre ou retoma o Claude Code
+Health check valida que tudo está instalado; gitignore-guard alerta se o .gitignore não cobre os mínimos da stack detectada
+🛡️ Antes de cada edicao
+Quando o Claude vai modificar arquivo
+Protect-files bloqueia arquivos sensiveis e pre-implementation-gate exige plan-review
+✅ Depois de cada edicao
+Assim que o arquivo e salvo
+Checks rodam: sintaxe, secrets, qualidade, design, determinismo, loop-detection e gitignore-guard
+📝 Quando voce fecha
+Ao finalizar a conversa
+Session-summary grava handoff operacional de 6 secoes
+🧹 Ao sair
+No encerramento da sessao
+Session-cleanup limpa temporarios (timeout 1.5s)
+🔍 O que eles protegem contra
+Problema
+O que acontece
+🔑
+Secrets hardcoded
+API keys, senhas, tokens colados direto no codigo
+💀
+Codigo perigoso
+eval(), exec(), Function() e execucoes dinamicas
+🎨
+Cores soltas
+Hex codes misturados no lugar do design system
+🎲
+Nao-determinismo
+Math.random() e new Date() onde deveria ser fixo
+🔒
+Arquivos sensiveis
+Edicoes em .git/, lockfiles, arquivos de build
+📋
+Pulos de portao
+Codigo criado sem plan-review aprovado
+♻️
+Loops de edicao
+Mesmo arquivo editado em circulo sem progresso (3a alerta, 5a bloqueio)
+🚧
+Sintaxe quebrada
+Python que não compila, erros óbvios
+🚫
+.gitignore incompleto
+Caches, builds, ambientes virtuais e artefatos de stack que poderiam ser commitados por engano
+💡 Você não precisa lembrar de nada. Todos esses checks são automáticos. Você só vai perceber quando algo der problema — e aí o framework mostra exatamente o quê, onde e como resolver.
+6. 🛡️ As 4 camadas de defesa
+O framework opera em 4 camadas complementares. Nenhuma substitui as outras:
+Camada
+Tipo
+Quando ativa
+O que pega
+Exemplo
+1 — Regras
+Declarativa
+Sempre
+Direcao e padroes
+&apos;Validar entrada&apos;
+2 — Hooks
+Mecanica auto
+Em evento
+Erros objetivos
+Secrets, syntax, loop
+3 — Memoria
+Comportamental
+Entre sessoes
+Erros de julgamento
+&apos;Grep != prova de uso&apos;
+4 — Cross-model
+Validacao indep.
+Apos command
+Blind spots
+Codex questiona Claude
+⚙️ Camada 1 — Regras (30+ rules)
+Grupo
+Regras principais
+O que garantem
+🔐 Seguranca
+security, web-api-security, database-security, kubernetes-security
+Checklist de seguranca por area
+✅ Qualidade
+code-review, structural-quality, testing, implementation-quality
+Criterios senior aplicados em revisao
+📋 Spec e plano
+spec-quality, spec-creation-guide, plan-construction
+O que spec/plano pronto precisa ter
+🏗️ Estado
+state-management, state-sync, execution-tracking, context-loading
+Como rastrear fases e memoria
+🤖 Agentes
+agent-contracts, review-quality
+Como agentes se comunicam
+📡 Harness
+sensors, execution-contracts, sprint-contracts, behaviour-harness, architecture-linters
+Verificacao mecanica declarativa
+📚 Gestao
+knowledge-base, capability-gaps, recommended-skills
+Conhecimento e lacunas
+🌐 Camada 4 — Cross-Model (Codex)
+O Codex (GPT-5.4) e revisor adversarial. Claude implementa, Codex questiona — duas IAs de empresas diferentes. O Codex e chamado nos checkpoints definidos por cada command. No /plan, roda antes de apresentar o plano ao usuario — o que voce ve ja incorpora o Delta pos-Codex.
+Checkpoint
+O que o Codex valida
+Apos /spec-create
+Completude, ambiguidades, viabilidade
+Apos /plan
+Plano vs spec, viabilidade tecnica (o plano apresentado ja e pos-Codex)
+Apos implementacao
+Implementacao completa e correta
+Apos /review e /audit
+Rigor da revisao, vulnerabilidades nao detectadas
+Antes de /ship-check
+Revisao final de seguranca e qualidade
+📝 Aplicacao automatica: voce nunca precisa abrir uma regra manualmente. Quando um comando roda, ele ja sabe quais regras consultar.
+7. 🔧 Comandos que voce usa
+Referencia completa dos 30 commands. Use como consulta rapida no dia a dia.
+🏗️ Especificacao e planejamento
+Comando
+O que faz
+/spec-create
+Cria a especificacao do projeto em modo conversa guiada
+/spec-check
+Valida se a especificacao esta pronta para implementar
+/plan
+Cria o plano de implementacao antes de codar
+/plan-review
+Revisa o plano (portao obrigatorio antes de implementar)
+/ui-plan
+Planejamento de interface com checkpoint visual
+/design-preview
+Gera opcoes de Design System para aprovacao
+🔍 Revisao e auditoria
+Comando
+O que faz
+/review
+Revisao de codigo em multiplas dimensoes (qualidade, seguranca, QA)
+/audit
+Auditoria completa de seguranca e qualidade
+/db-audit
+Auditoria focada em banco de dados
+/web-audit
+Auditoria focada em APIs e aplicacoes web
+/k8s-audit
+Auditoria focada em Kubernetes
+🎯 Verificacao e entrega
+Comando
+O que faz
+/verify-spec
+Verifica se cada requisito da spec foi implementado
+/ship-check
+Checagem final antes de entregar ou fazer deploy
+/justify
+Documenta as justificativas tecnicas das decisoes
+🧭 Estado e manutencao
+Comando
+O que faz
+/status-check
+Mostra estado atual do projeto, pendencias e bloqueios
+/memory-consolidate
+Reorganiza a memoria do projeto
+/skills-gap
+Identifica lacunas e sugere skills externas
+📡 Camadas avancadas
+Comando
+O que faz
+/sensors-run
+Executa sensores mecanicos e produz veredicto por exit code
+/contract-create
+Cria contrato de execucao da fase (upstream)
+/contract-check
+Verifica estado do projeto contra contrato ativo
+/sprint-create
+Cria sprint contract (entrega atomica 1-2h)
+/sprint-evaluate
+Executa evaluator do sprint e registra verdict
+/sprint-close
+Fecha sprint com confirmacao humana
+/behaviour-run
+Executa behaviours runtime (expected vs actual)
+/lint-architecture
+Executa linters de invariantes estruturais
+/kb-update
+Atualiza knowledge base do projeto
+/kb-status
+Verifica estado da knowledge base
+/gaps-scan
+Detecta capability gaps (lacunas de verificacao)
+/gaps-status
+Verifica estado dos gaps
+8. 🧠 Agentes que te ajudam
+Agentes sao &apos;especialistas virtuais&apos; que o framework chama quando precisa de analise especifica. Voce nao chama agentes diretamente — os comandos fazem isso por voce.
+🎭 Quem faz o que
+Agente
+Especialidade
+Chamado por
+O que entrega
+spec-creator
+Criar especificacao
+/spec-create
+Conduz discovery e estrutura a spec
+planner
+Planejar implementacao
+/plan
+Desenha plano tecnico completo
+spec-plan-validator
+Comparar plano x spec
+/plan-review
+Verifica se plano e fiel a spec
+consistency-checker
+Coerencia do plano
+/plan-review
+Checa contagens, dependencias, refs cruzadas
+code-reviewer
+Revisao de codigo
+/review
+Aplica criterios de dev senior
+security-auditor
+Auditoria de seguranca
+/audit e variantes
+Busca vulnerabilidades e blind spots
+qa-auditor
+Cobertura de testes
+/review
+Detecta codigo sem testes, classifica por risco
+risk-assessment
+Analise de risco
+/plan e /ship-check
+Avalia irreversibilidade, incognitas, debito
+🎯 Dois tipos de agente
+Tipo
+Caracteristica
+Exemplo
+🔄 Transversal
+Aparece em varios comandos nao relacionados
+risk-assessment e chamado por /plan e /ship-check
+🎯 Especializado
+Aparece em um comando ou familia coesa
+security-auditor e chamado por /audit, /web-audit, /db-audit, /k8s-audit
+💡 Voce nao precisa saber nada disso para usar o framework. Mas quando vir mensagens tipo &apos;invocando risk-assessment&apos;, vai entender do que se trata.
+9. 📜 As regras do jogo
+O framework tem 30+ regras em arquivos .md dentro da pasta .claude/rules/. Elas nao sao documentacao — sao ativamente aplicadas em cada comando.
+Grupo
+Regras principais
+O que garantem
+🔐 Seguranca
+security, web-api-security, database-security, kubernetes-security
+Checklists de seguranca por area
+✅ Qualidade de codigo
+code-review, structural-quality, testing, implementation-quality
+Criterios senior aplicados em revisao
+📋 Spec e plano
+spec-quality, spec-creation-guide, plan-construction
+O que uma spec/plano pronto precisa ter
+🏗️ Estado e observabilidade
+state-management, observability, performance
+Como lidar com estado, logs, performance
+🎨 Design e UI
+design-system-quality
+O que um bom Design System entrega
+🔄 Execucao e memoria
+execution-tracking, state-sync, context-loading
+Como rastrear fases e memoria persistente
+🤖 Agentes e review
+agent-contracts, review-quality
+Como agentes se comunicam e quando review e valido
+📊 Evidencia
+self-verification, evidence-tracing
+Todo achado precisa de prova rastreavel
+📡 Harness mecanico
+sensors, execution-contracts, sprint-contracts, behaviour-harness, architecture-linters
+Verificacao mecanica declarativa
+📚 Gestao de conhecimento
+knowledge-base, capability-gaps, recommended-skills
+Conhecimento, lacunas e skills
+📝 Voce nunca precisa abrir uma regra manualmente. Quando um comando roda, ele ja sabe quais regras consultar. Se quiser entender o porque de alguma coisa, pode abrir a regra.
+10. 📡 Camadas avancadas
+Alem do workflow basico (spec → plan → implement → review → ship), o framework oferece 7 camadas avancadas OPT-IN que adicionam verificacao mecanica profunda.
+📡 Sensores Mecanicos
+🎯 Verificacoes onde o EXIT CODE do comando e a verdade — nao a narrativa da IA. Se retorna 0, passou. Se retorna outro valor, FALHOU.
+Tipo
+O que verifica
+Exemplo
+test
+Testes passam
+npm test, pytest
+lint
+Sem violacoes
+npm run lint, ruff
+type-check
+Tipos validos
+tsc --noEmit, mypy
+build
+Compila limpo
+npm run build
+security-scan
+Sem vulnerabilidades
+npm audit
+custom
+Qualquer verificacao
+Scripts shell
+sensors.json  ➡️  /sensors-run  ➡️  sensors-last-run.json  ➡️  /ship-check le
+📜 Execution Contracts
+🎯 Declaracao UPSTREAM do que a fase promete. Plano = COMO. Contrato = O QUE. Ledger = O QUE ACONTECEU.
+draft  ➡️  approved  ➡️  in_progress  ➡️  done / failed / deferred
+Campo chave
+O que declara
+deliverables[]
+Arquivos/artefatos que devem existir
+acceptance_criteria[]
+Comportamentos observaveis (sensor/behaviour/manual)
+sensors_required[]
+Sensores que devem estar verdes
+architecture_linters_required[]
+Linters que devem passar
+out_of_scope[]
+O que NAO esta no escopo
+🏃 Sprint Contracts
+🎯 Unidades ATOMICAS de entrega (1-2h) com evaluator deterministico. Phase = dias/semanas. Sprint = horas.
+⚠️ Invariante central: phase contract NUNCA e mutado por sprint. Vinculo e via filesystem.
+Check do Evaluator
+Verdict vem de
+file_exists
+path existe no filesystem
+grep_pattern
+matches de regex em arquivo
+sensor_subset
+sensors-last-run.json
+custom_command
+exit code (timeout obrigatorio)
+🧪 Behaviour Harness
+🎯 Behaviours DISPARAM acao real e COMPARAM resultado vs expectativa. Sensores = &apos;compila?&apos;. Behaviours = &apos;quando executo X, FAZ Y?&apos;
+Tipo de Expectation
+O que compara
+exit_code
+Exit code do comando bate com esperado
+stdout_contains
+stdout contem pattern esperado
+stdout_json_path
+filtro jq no stdout JSON bate
+file_content
+arquivo contem pattern esperado
+file_exists_after
+arquivo existe apos execucao
+not_contains
+stdout NAO contem pattern (negativa)
+📝 Binding bidirecional: behaviour declara contract_ref e phase contract declara behaviour_id. Ambas as pontas devem existir.
+🏗️ Architecture Linters
+🎯 Verificam INVARIANTES ESTRUTURAIS cross-file. Hooks = por arquivo. Sensores = build/test. Linters = estrutura.
+Categoria
+Exemplo
+layering
+Screens nao importam de infra
+circular-deps
+A importa B importa A
+cross-file
+Rotas do router existem como arquivos
+naming
+PascalCase, hooks com use
+type-schema-match
+Frontend bate com backend
+📚 Knowledge Base
+🎯 VIEW CONSOLIDADA do conhecimento — mapa, nao atlas. 4 documentos concisos (50-150 linhas cada).
+Documento
+Pergunta que responde
+architecture.md
+Qual e a arquitetura deste projeto?
+quality-posture.md
+Qual a postura de qualidade agora?
+security-posture.md
+Qual a postura de seguranca agora?
+decisions-log.md
+Quais decisoes foram tomadas e por que?
+🔍 Capability Gap Tracking
+🎯 Transforma observacoes TRANSITORIAS (NO_SENSORS, NEVER_RUN, STALE) em registro PERSISTENTE.
+Tipo de Gap
+Significado
+declaration_absent
+Camada nao declarada (ex: sensors.json ausente)
+never_run
+Declarada mas nunca executada
+stale
+Resultado desatualizado
+binding_gap
+Referencia quebrada entre artefatos
+native_uncovered
+Categoria nao coberta (pen test, E2E)
+⚠️ Gaps NUNCA sao gate — sao visibilidade, nao enforcement. Scanner NUNCA sobrescreve decisao humana.
+📝 Handoff Operacional
+🎯 Resumo automatico de 6 secoes no fim de cada sessao, para retomar sem perder contexto.
+#
+Pergunta
+Fonte
+1
+Onde estamos agora?
+ledger (Current Status)
+2
+O que esta ativo?
+active.json + active-sprint.json
+3
+O que acabou de acontecer?
+Ultima linha com data ISO-8601
+4
+O que falta fazer?
+Open Items (max 3)
+5
+O que esta bloqueando?
+Blockers (max 3)
+6
+Fonte de verdade?
+Trio: ledger &gt; snapshot &gt; MEMORY
+💡 Todas as camadas avancadas sao OPT-IN. O framework funciona com sensores + workflow padrao. As demais adicionam profundidade conforme o projeto cresce.
+11. 📁 Runtime e persistencia
+Todos os artefatos que o framework cria e consome, onde vivem e quem escreve neles:
+Artefato
+Quem escreve
+Git?
+Proposito
+execution-ledger.md
+Commands
+✔️
+Estado oficial completo
+pattern-registry.md
+Manual/justify
+✔️
+Padroes aprovados
+session-summaries/latest.md
+Hook Stop
+✔️
+Handoff operacional 6 secoes
+sensors.json
+Manual
+✔️
+Declaracao de sensores
+sensors-last-run.json
+/sensors-run
+Efemero
+Veredicto sensores
+contracts/phase-&lt;id&gt;.json
+/contract-create
+✔️
+Contrato de fase
+contracts/active.json
+/contract-create
+✔️
+Ponteiro fase ativa
+contracts/active-sprint.json
+/sprint-create
+✔️
+Ponteiro sprint ativo
+sprints/&lt;id&gt;/&lt;sid&gt;.json
+/sprint-create
+✔️
+Sprint contract
+behaviours.json
+Manual
+✔️
+Declaracao behaviours
+behaviours-last-run.json
+/behaviour-run
+Efemero
+Expected vs actual
+architecture-linters.json
+Manual
+✔️
+Declaracao linters
+arch-linters-last-run.json
+/lint-architecture
+Efemero
+Veredicto linters
+knowledge-index.json
+/kb-update
+✔️
+Indice da KB
+knowledge/*.md
+/kb-update
+✔️
+Documentos da KB
+capability-gaps.json
+/gaps-scan
+✔️
+Registro de gaps
+project_spec-status.md
+Commands
+Local
+Snapshot resumido
+MEMORY.md
+Commands
+Local
+Indice de ponteiros
+Trio de Sincronizacao
+🎯 3 arquivos sincronizados: ledger (fonte de verdade) &gt; snapshot (resumo) &gt; MEMORY.md (indice). Se divergirem, o ledger prevalece.
+12. 🎬 Cenarios praticos
+Situacoes reais que voce vai encontrar no dia a dia e como o framework te ajuda.
+🎯 Cenario 1 — &apos;Quero comecar um projeto novo&apos;
+🎬 Voce tem uma ideia e quer comecar do zero.
+Rode /spec-create e converse com o framework sobre o produto.
+Quando terminar, rode /spec-check. Se der BLOCKED, resolva e tente de novo.
+Com READY, rode /design-preview se tem interface. Escolha uma opcao.
+Rode /plan para gerar o plano de implementacao.
+Rode /plan-review. Se vier APPROVED ou APPROVED_WITH_CORRECTIONS, está liberado para implementar.
+Peca ao Claude Code para implementar a Fase 1. Ele escreve; os hooks vigiam.
+Ao final da fase, rode /review para revisao.
+Corrija findings, documente com /justify, e prossiga para a proxima fase.
+💡 Uma spec completa de projeto pequeno leva 20-40 minutos de conversa. O plano, 5-10 minutos.
+🔧 Cenario 2 — &apos;Preciso corrigir um bug&apos;
+🎬 Alguem reportou que a funcao X esta errada.
+Rode /status-check para confirmar o estado atual.
+Rode /plan descrevendo o bug e o fix pretendido.
+Rode /plan-review.
+Com APPROVED ou APPROVED_WITH_CORRECTIONS, peça a correção ao Claude Code.
+O framework aplica o fix e busca o mesmo padrao em TODO o projeto.
+Rode /review para confirmar e /verify-spec se o bug afetava requisito da spec.
+🎯 Nenhum fix e &apos;pequeno demais&apos;. Mesmo para um typo, o framework pede o fluxo completo.
+🚀 Cenario 3 — &apos;Quero fazer o primeiro deploy&apos;
+🎬 O projeto esta implementado e voce vai colocar no ar.
+Rode /verify-spec para confirmar que todos os requisitos foram entregues.
+Rode /audit (e as variantes que fazem sentido).
+Corrija tudo que for CRITICO e ALTO.
+Rode /ship-check. Esse e o ultimo portao.
+Se PRONTO, pode entregar. Se COM RESSALVAS, decida. Se NAO PRONTO, resolva.
+🔄 Cenario 4 — &apos;Voltei depois de 2 semanas sem mexer&apos;
+🎬 Voce abandonou o projeto. Como retomar sem perder contexto?
+Abra o Claude Code na pasta do projeto.
+O framework carrega automaticamente a memoria: estado, pendencias, decisoes.
+Rode /status-check para ver o resumo.
+Se tiver muita coisa acumulada, rode /memory-consolidate.
+Continue de onde parou.
+💡 A memoria do projeto (estado, decisoes, findings, pendencias) nao depende da sessao. Quando voce volta, o framework reconstroi o contexto a partir dos arquivos — nao importa quanto tempo passou.
+13. ❓ Perguntas frequentes
+❓ Preciso saber programar para usar o framework?
+Para tirar proveito completo, sim. Mas para acompanhar e entender o que esta acontecendo, nao. O framework explica cada passo, e voce pode pedir ao Claude Code para explicar qualquer coisa.
+❓ Posso usar em qualquer linguagem de programacao?
+Sim. O framework é genérico. Alguns hooks têm checks específicos por stack, e o gitignore-guard detecta stacks comuns como Node, Python, Rust, Go e Java. A camada de regras, comandos e agentes continua genérica e funciona em qualquer stack.
+❓ E se eu pular um passo?
+Alguns passos tem portoes mecanicos (como o /plan-review antes de implementar). Esses nao da para pular — o framework bloqueia. Outros sao disciplinares: tecnicamente da, mas voce perde as garantias de qualidade.
+❓ O framework funciona offline?
+Os hooks e comandos sim. A parte de cross-review com Codex precisa de conexao. O Claude Code em si tambem precisa de conexao (chama a API da Anthropic).
+❓ Posso customizar as regras?
+Pode. As regras vivem em arquivos .md dentro de .claude/rules/. Voce pode editar, adicionar novas, remover as que nao fazem sentido. O framework e seu — adapte como precisar.
+❓ Como o framework se compara a rodar o Claude Code sem ele?
+Sem framework: voce depende da memoria do assistente e da disciplina de pedir revisao. Com framework: tudo e estruturado, automatizado, verificado em multiplas camadas e guardado entre sessoes. A diferenca aparece em projetos medios para grandes.
+❓ Quanto o framework adiciona de tempo ao trabalho?
+No comeco, parece adicionar. Depois do segundo ou terceiro projeto, voce percebe que economiza tempo — porque os bugs que voce teria nao acontecem, e as decisoes que voce teria esquecido estao documentadas.
+❓ Posso usar em projetos profissionais?
+O framework foi desenhado exatamente para projetos profissionais. Use em projetos pessoais para aprender o fluxo, depois leve para o trabalho.
+❓ Preciso atualizar o framework com frequencia?
+Nao. O framework e estavel. Quando sair versao nova com melhorias (como V4+), basta copiar os arquivos atualizados para o seu projeto.
+❓ E se o framework reclamar de algo que eu sei que esta certo?
+Leia a justificativa que o framework apresenta. As vezes ele esta certo e voce nao percebeu. Se depois de ler voce ainda achar que ele esta errado, pode discordar e seguir — o framework avisa, nao obriga (exceto nos portoes mecanicos).
+❓ O que sao as &apos;camadas avancadas&apos; (sensores, contratos, behaviours...)?
+Sao ferramentas OPT-IN para projetos que querem verificacao profunda. O framework basico funciona sem elas. Conforme o projeto cresce, voce pode adotar sensores (verificacao mecanica), contratos (compromisso formal por fase), behaviours (teste de comportamento real), linters (invariantes estruturais), knowledge base (documentacao sintetizada) e gaps (rastreamento de lacunas).
+14. 🗂️ Cartao de referencia rapida
+📝 Para imprimir e deixar ao lado
+🎯 Fluxo em 12 passos
+#
+Comando
+Objetivo
+1
+📝
+/spec-create
+Criar a especificacao
+2
+🔎
+/spec-check
+Validar que esta pronta
+3
+🎨
+/design-preview + /ui-plan
+Escolher visual (se tem UI)
+4
+🗺️
+/plan
+Planejar implementacao
+5
+✅
+/plan-review
+Revisar plano (portao)
+6
+⌨️
+implementar
+Escrever codigo
+7
+🔍
+/review
+Revisar o codigo
+8
+🛡️
+/audit + variantes
+Auditoria profunda
+9
+🩹
+corrigir
+Resolver findings
+10
+📝
+/justify
+Documentar decisoes
+11
+🎯
+/verify-spec
+Verificar aderencia
+12
+🚀
+/ship-check
+Checagem final
+🚦 Sinais que voce vai ver
+Veredicto
+Acao
+🟢
+READY / APPROVED / PRONTO / MATCH
+Pode avançar
+🟡
+READY WITH ASSUMPTIONS / APPROVED_WITH_CORRECTIONS / PARCIAL / PRONTO COM RESSALVAS
+Pode avançar com consciência dos pontos abertos
+🔴
+BLOCKED / NEEDS_REVISION / NEEDS_HUMAN_REVIEW / NÃO PRONTO / MISS
+Não avance — resolva antes
+🆘 Se algo der errado
+Situacao
+O que fazer
+Hook bloqueou edicao
+Leia a mensagem do hook — ele explica exatamente o problema
+/plan-review retornou NEEDS_REVISION
+Corrija o plano conforme os findings BLOCKING e rode de novo
+Findings de seguranca
+Comece pelos CRITICO e ALTO; os demais sao debito tecnico
+Perdi o contexto do projeto
+Rode /status-check — a memoria recupera tudo
+Nao sei em que fase estou
+Rode /status-check — mostra o estado atual
+Framework parece travado
+Veja se o Codex esta em background — pode estar analisando
+Sensor falhou mas codigo parece ok
+Rode /sensors-run para ver o exit code real. Exit code e autoridade
+Contrato com veredicto FAILED
+Rode /contract-check para ver qual deliverable ou sensor falhou
+📡 Camadas avancadas — referencia rapida
+Camada
+Adotar quando
+Command principal
+Sensores
+Qualquer projeto (recomendado)
+/sensors-run
+Contracts
+Fases com mais de 1 dia
+/contract-create
+Sprints
+Fases longas que precisam de feedback curto
+/sprint-create
+Behaviours
+Projeto com endpoints/CLI/estado observavel
+/behaviour-run
+Linters
+Projeto com invariantes cross-file
+/lint-architecture
+Knowledge Base
+Projeto com muitas decisoes e camadas
+/kb-update
+Gaps
+Projeto maduro que quer rastrear lacunas
+/gaps-scan
+15. 📖 Glossario
+Termo
+Definicao simples
+📒 Ledger
+Registro oficial e completo do historico do projeto
+📸 Snapshot
+Resumo compacto do estado atual (na memoria)
+🔄 Trio
+3 arquivos sincronizados: ledger + snapshot + MEMORY.md
+🚧 Gate
+Checkpoint obrigatorio que BLOQUEIA se nao passar
+📡 Sensor
+Verificacao mecanica por exit code
+🧪 Behaviour
+Acao real + comparacao expected vs actual
+🏗️ Linter
+Verificacao de invariante estrutural cross-file
+📜 Contract
+Declaracao formal do que a fase promete
+🏃 Sprint
+Unidade atomica de entrega (1-2h) com evaluator
+🔍 Gap
+Lacuna de verificacao registrada persistentemente
+⏳ Staleness
+Resultado desatualizado (codigo mudou apos run)
+🔗 Binding
+Vinculo bidirecional behaviour &lt;-&gt; acceptance criterion
+⚙️ Harness
+Conjunto de ferramentas de verificacao
+🧮 Evaluator
+Bateria de checks atomicos com verdict mecanico
+⚖️ Verdict
+Resultado final (PASS/FAIL/PARTIAL)
+🔑 identity_key
+Chave deterministica de merge do scanner de gaps
+🛡️ Hook
+Script automatico que roda em evento (edit, session-start)
+🤖 Agent
+Especialista virtual chamado por commands
+📋 Rule
+Regra .md ativamente aplicada pelo framework
+📚 Knowledge Base
+View consolidada do conhecimento do projeto
+🎉
+Pronto para comecar!
+Abra o Claude Code, rode /spec-create e deixe o framework te guiar.
+— Fim do Guia —
+Claude Code Quality Framework V4+ — Guia Pratico Didatico
+🛡️  📋  ⚡  🧠  🔍  🚀

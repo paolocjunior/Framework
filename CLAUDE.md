@@ -56,16 +56,18 @@
 
 ## Hooks
 
-Todos os 11 hooks rodam sempre, sem exceção. Não existe modo reduzido — o framework opera com poder máximo em qualquer projeto.
+Todos os 12 hooks rodam sempre, sem exceção. Não existe modo reduzido — o framework opera com poder máximo em qualquer projeto.
 
 ### Lifecycle de Sessão
 
 | Evento | Hook | Propósito |
 |--------|------|-----------|
 | `SessionStart` (startup/resume) | `health-check.sh` | Valida ambiente (jq, estrutura, permissões) |
+| `SessionStart` (startup/resume) | `gitignore-guard.sh` | Warn (não bloqueia) quando `.gitignore` falta padrões mínimos da stack detectada (data-driven via `.claude/hooks/data/gitignore-stack-minimums.json`) |
 | `PreToolUse` (Edit/Write) | `protect-files.sh` | Bloqueia edição de lockfiles e .git |
 | `PreToolUse` (Edit/Write) | `pre-implementation-gate.sh` | Bloqueia código-fonte sem /plan-review aprovado |
-| `PostToolUse` (Edit/Write) | 5 hooks decompostos + loop-detection | Validação completa em toda edição |
+| `PostToolUse` (Edit/Write/MultiEdit) | 5 hooks decompostos + loop-detection + `gitignore-guard.sh` | Validação completa em toda edição; gitignore-guard também alerta quando arquivo criado/editado pertence a stack cuja `.gitignore` falta padrões |
+| `PostToolUse` (Bash) | `gitignore-guard.sh` | Warn quando `git add` é detectado e `.gitignore` falta padrões mínimos da stack |
 | `Stop` | `session-summary.sh` | Gera resumo da sessão em arquivo separado |
 | `SessionEnd` | `session-cleanup.sh` | Cleanup de temporários (timeout 1.5s) |
 

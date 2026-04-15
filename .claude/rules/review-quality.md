@@ -31,7 +31,7 @@ Todo command de review DEVE aplicar o checklist abaixo **antes** de publicar ver
 ### Acionabilidade
 
 - [ ] Cada finding tem recomendação **concreta** (o que fazer para resolver), não apenas descrição do problema
-- [ ] **Severidade declarada** por finding: `CRÍTICO` | `ALTO` | `MÉDIO` | `BAIXO`
+- [ ] **Severidade declarada** por finding, usando o vocabulário definido na tabela de veredictos/severidades do command invocador (ex: `/review` e `/audit` usam `CRÍTICO | ALTO | MÉDIO | BAIXO`; `/plan-review` usa `BLOCKING | NON-BLOCKING | EDITORIAL`). Esta rule não fixa um vocabulário universal — cada command declara o seu na própria documentação e o self-check valida apenas que a severidade declarada pertence àquele vocabulário
 - [ ] Findings com confiança baixa foram escalados explicitamente como "requer verificação adicional" em vez de publicados como certeza
 
 ### Cobertura declarada
@@ -83,7 +83,7 @@ Os seguintes padrões são considerados **falha de self-check automática**, ind
 - **Grep por import ou declaração usado como prova de uso real** (ver `.claude/rules/evidence-tracing.md` — "Anti-padrões de Evidência")
 - **Contagem de grep matches como contagem de uso efetivo** (matches incluem imports, re-exports, comentários, type annotations — não apenas uso)
 - **Conclusão de cobertura total a partir de amostragem parcial** sem declarar que foi amostra
-- **Severidade implícita** ("isso seria bom arrumar" sem dizer se é BAIXO ou CRÍTICO)
+- **Severidade implícita** ("isso seria bom arrumar" sem declarar o nível explícito no vocabulário do command invocador)
 - **Recomendação sem destino** ("deveria ser melhor" sem arquivo/linha/ação específica)
 
 Estes anti-padrões estão catalogados em `.claude/rules/evidence-tracing.md` — esta rule apenas reforça que commands de review devem rejeitá-los no self-check.

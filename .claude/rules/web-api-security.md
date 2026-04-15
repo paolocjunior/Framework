@@ -128,6 +128,28 @@
 - [ ] X-Powered-By removido
 - [ ] Permissions-Policy configurada (câmera, microfone, geolocalização)
 
+## Testabilidade dos controles de segurança
+
+Todo controle de segurança web declarado ou implementado (headers, CSP, auth middleware, rate limit, CSRF, CORS policy, error pages seguras) DEVE ter evidência de teste dedicado conforme `.claude/rules/testing.md` seção **Infraestrutura cross-cutting testável**. Middleware de segurança sem teste dedicado é "implementado, mas não verificado" — falsa confiança que um scanner externo vai apontar depois.
+
+**Regra:**
+
+- [ ] Cada header de segurança declarado no plano tem teste que asserta sua presença e valor no response
+- [ ] Cada middleware de auth/rate limit/CSRF/CORS tem teste dedicado do efeito observável (bloqueio, liberação, status, headers)
+- [ ] Error pages seguras têm teste que asserta ausência de stack trace/SQL/path interno no body (referência cruzada com Padrão 24 em `.claude/rules/implementation-quality.md`)
+- [ ] Plano declara classificação de endpoints contra Security Regression Matrix conforme `.claude/rules/plan-construction.md` Passo 8 — subseção "Componentes críticos cross-cutting"
+
+**Severidade contextual de headers omitidos:**
+
+Headers omitidos exigem justificativa contextual — não há regra universal "qualquer header ausente = ALTO". A severidade depende do ambiente:
+
+- **CSP ausente em app web público, multiusuário ou com conteúdo de terceiros** → finding ALTO
+- **CSP ausente em app web com renderização de HTML dinâmico** → finding MÉDIO
+- **HSTS ausente em API interna HTTP-only (ambiente local, rede privada)** → não aplicável
+- **X-Frame-Options ausente em CLI servindo HTML estático local** → finding BAIXO
+
+Middleware dedicado a headers de segurança DEVE declarar explicitamente: quais headers cobre, quais omite e por quê. Omissão não justificada de header relevante ao contexto é finding; omissão com justificativa contextual documentada é aceitável.
+
 ## CORS (Cross-Origin Resource Sharing)
 
 - [ ] Origins permitidas são específicas (nunca wildcard * em produção com credenciais)

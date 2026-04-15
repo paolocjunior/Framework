@@ -120,6 +120,50 @@ Regras de consolidação:
 - **NÃO IMPLEMENTADO** — nenhum cenário COBERTO (caminho feliz ausente)
 - **NÃO VERIFICÁVEL** — todos os cenários são NÃO VERIFICÁVEIS
 
+### 3.3 — Verificação de tokens literais da spec
+
+Extrair da especificação todos os valores marcados com notação literal conforme `.claude/rules/spec-quality.md#Convenção-de-notação-literal`:
+
+- `[literal]"X"` — token exato que DEVE aparecer no código caractere por caractere
+- `[example]"X"` — exemplo ilustrativo; variantes equivalentes são aceitáveis
+- `[equivalent]"X"` — paridade funcional importa mais que o literal
+
+Para cada token marcado na spec, verificar no código implementado:
+
+| Notação na spec | Verificação no código | Status |
+|---|---|---|
+| `[literal]"X"` | Grep pelo token em enums, strings comparadas, chaves de artefato, nomes de evento, códigos de erro, nomes de campo de API. **Grep é apenas sinal inicial — não prova.** Conformidade exige que o token esteja **ligado ao comportamento verificado** (uso efetivo no caminho de execução do cenário) ou que haja **binding rastreável** quando o literal é montado dinamicamente, vem de constante/enum centralizado, ou passa por camada de i18n/localização | CONFORME se o token aparece literalmente E está ligado ao comportamento verificado ou a binding rastreável; PARCIAL se o token aparece mas o binding com o comportamento não pôde ser confirmado; NÃO CONFORME se divergente, ausente, ou reconstruído a partir de partes que quebram o contrato textual |
+| `[example]"X"` | Inspecionar o local de uso; variantes equivalentes são aceitáveis | CONFORME por default; flag apenas se a semântica divergir |
+| `[equivalent]"X"` | Verificar paridade funcional, não textual | CONFORME se comportamento preservado |
+
+Regra crítica: **divergência em token `[literal]`** é **NÃO CONFORMIDADE** e rebaixa o cenário correspondente para `NÃO COBERTO`, mesmo que o comportamento geral pareça funcionar. Exemplos:
+
+- Spec diz `[literal]"pending_review"` mas código usa `"pendingReview"` → NÃO CONFORMIDADE (divergência textual direta)
+- Spec diz `[literal]"INSUFFICIENT_FUNDS"` mas código usa `"INSUFFICIENT_BALANCE"` → NÃO CONFORMIDADE
+- Spec diz `[literal]"user.created"` mas código emite `"user_created"` → NÃO CONFORMIDADE
+- Spec diz `[literal]"INSUFFICIENT_FUNDS"` e código tem essa string num arquivo de constantes, mas o caminho de execução do cenário emite outra string → NÃO CONFORMIDADE (token existe mas não está ligado ao comportamento)
+- Spec diz `[literal]"user.created"` e código monta `"user" + separator + action` onde `separator` vem de config → PARCIAL com investigação obrigatória do binding efetivo
+
+Casos que exigem verificação de binding além do grep:
+
+- **Constantes/enums centralizados** — o token aparece em `constants.ts` mas o cenário usa outra constante; verificar qual constante é referenciada no caminho de execução
+- **Montagem dinâmica** — o literal é composto por concatenação, template string ou format; reconstruir o resultado efetivo e comparar caractere-por-caractere
+- **Camada de i18n/localização** — o token é chave de tradução, não o texto renderizado; verificar a chave, não o texto localizado
+- **Indireção via mapa/dispatch** — o token é valor numa tabela de mapeamento; verificar que o caminho do cenário passa por essa entrada
+
+Tokens `[example]` NÃO geram rebaixamento por divergência textual — apenas quando a semântica do exemplo é violada.
+
+Tokens sem notação explícita na spec que parecem aparecer literalmente no código: registrar como lacuna da spec (não do código) — recomendar `/spec-check` para anotar os tokens faltantes.
+
+Formato de reporte:
+
+| Token na spec | Notação | Localização no código | Binding verificado | Status |
+|---|---|---|---|---|
+| `pending_review` | [literal] | `src/orders/status.ts:12` | sim — usado no handler do cenário 2.3 | CONFORME |
+| `INSUFFICIENT_FUNDS` | [literal] | `src/errors/codes.ts:34` | sim — mas código do cenário 1.2 emite `INSUFFICIENT_BALANCE` via `src/billing/charge.ts:78` | NÃO CONFORME — divergência no binding |
+| `user.created` | [literal] | `src/events/names.ts:5` como constante; montagem em `src/events/emit.ts:8` via template | não foi possível confirmar que o template resolve exatamente para `user.created` sem executar | PARCIAL — requer evidência runtime |
+| `user.created` | [example] | `src/events/emit.ts:8` — código usa `user:created` | n/a | CONFORME — [example] permite variação |
+
 ## Passo 4 — Verificações dinâmicas via sensores mecânicos
 
 Verificações dinâmicas devem vir preferencialmente da camada de sensores (`.claude/rules/sensors.md`), não de execução ad-hoc de comandos pelo agente. A camada de sensores produz `sensors-last-run.json` com exit codes verificáveis, eliminando o risco de o agente narrar "teste passou" quando na verdade falhou.

@@ -17,7 +17,7 @@ Invocações que omitem qualquer um desses 4 elementos são consideradas malform
 
 ## Formato de resposta obrigatório
 
-Todo agent DEVE retornar resposta estruturada em 4 seções com os títulos exatos abaixo:
+Todo agent DEVE retornar resposta estruturada em pelo menos 4 seções com os títulos exatos abaixo. Agents que propõem mudanças concretas no artefato revisado (ex: agents de plan-review) adicionam uma 5ª seção opcional `APPLICABLE_DELTA` descrita ao final desta seção.
 
 ### 1. ESCOPO ANALISADO
 
@@ -34,6 +34,30 @@ Um dos valores permitidos, definidos pelo command invocador na sua tabela de ver
 ### 4. AÇÃO SUGERIDA
 
 Passo acionável concreto que o command invocador deve tomar com base no veredicto. Não é apenas descrição do problema — é instrução de próximo passo.
+
+### 5. APPLICABLE_DELTA (opcional, quando aplicável)
+
+Seção opcional usada por agents cujo contrato permite **propor mudanças concretas** no artefato revisado (ex: agents de plan-review propondo edições cirúrgicas ao plano). Quando presente, cada item DEVE seguir formato estruturado:
+
+```
+- target: <arquivo/seção/linha — referência concreta>
+  operation: <add | modify | remove>
+  before: <trecho ou descrição do estado atual — omitir quando operation=add>
+  after: <trecho ou descrição do estado proposto — omitir quando operation=remove>
+  justification: <por que a mudança é necessária, referência à evidência>
+```
+
+Regras:
+
+- Esta seção é **opcional**. Agents que apenas reportam (sem propor mudanças) omitem a seção inteira.
+- Quando presente, cada item é uma proposta concreta — não descrição em prose.
+- `target` deve ser rastreável (arquivo:linha, seção:título, ou referência inequívoca ao artefato revisado).
+- `operation` é um dos 3 valores literais — sem variações.
+- `before` e `after` são omitidos conforme a operação (add não tem before; remove não tem after).
+- `justification` aponta para a evidência na seção `EVIDÊNCIA` do mesmo output ou para regra/spec externa.
+- Itens sem justificativa concreta são rejeitados pelo command invocador.
+
+Command invocador decide como consumir a seção: aplicar as propostas automaticamente (raro), apresentar ao usuário como sugestões revisáveis (comum), ou registrar como achados para ação humana (default).
 
 ## Parsing pelo command invocador
 

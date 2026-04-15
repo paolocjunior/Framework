@@ -101,16 +101,54 @@ Se nao houver achados adicionais: "Open scan: nenhum achado adicional material."
 
 ## Formato de Output
 
+Este agent segue o contrato de `.claude/rules/agent-contracts.md`. Output estruturado em 4 secoes obrigatorias (ESCOPO ANALISADO, EVIDENCIA, VEREDICTO, ACAO SUGERIDA) + 5a secao opcional (APPLICABLE_DELTA) quando propoe mudancas concretas no plano.
+
+### 1. ESCOPO ANALISADO
+
+Declarar:
+- `REVIEW_MODE`: FULL | TECHNICAL_ONLY
+- `SOURCES_CONSULTED`: spec do modulo, spec do projeto, CLAUDE.md, rules, codigo ja implementado, plano atual
+- `SCOPE`: seções/arquivos do plano analisados
+- Fontes nao disponiveis: "Fonte X nao disponivel — check Y nao executado"
+
+### 2. EVIDENCIA
+
+Cada finding no formato:
+
 ```
-REVIEW_MODE: FULL | TECHNICAL_ONLY
-
----
-
 ID: SPV-XX
 SEVERITY: BLOCKING | NON-BLOCKING | EDITORIAL
 CONFIDENCE: ALTA | MEDIA | DEPENDE_DE_TRECHO_NAO_ENCONTRADO | N/A
 STATUS: FALHOU | PARCIAL | OK
 EVIDENCE: [citacao da spec com secao, ou referencia ao padrao]
-WHY: [por que isso e problema]
-FIX: [correcao objetiva proposta]
+WHY: [por que isso e problema de fidelidade a spec ou qualidade tecnica]
+FIX: [correcao objetiva proposta — sera tambem item em APPLICABLE_DELTA quando aplicavel]
 ```
+
+### 3. VEREDICTO
+
+Um dos valores permitidos pelo command `/plan-review` (consultar a tabela de veredictos desse command). Sem veredicto = output invalido.
+
+### 4. ACAO SUGERIDA
+
+Passo concreto para o command invocador (`/plan-review`) aplicar com base no veredicto. Ex: "Rebaixar plano para NEEDS_REVISION e apresentar os N findings BLOCKING ao usuario" ou "Publicar como APPROVED com ressalvas EDITORIAL".
+
+### 5. APPLICABLE_DELTA (opcional)
+
+Quando findings de fidelidade a spec ou qualidade tecnica indicam mudancas textuais concretas ao plano (corrigir campo ausente, alinhar enum a spec, adicionar regra faltante, trocar status HTTP errado), propor cada mudanca em formato estruturado:
+
+```
+- target: <plano.md:linha ou secao:titulo>
+  operation: add | modify | remove
+  before: <trecho atual — omitir quando operation=add>
+  after: <trecho proposto — omitir quando operation=remove>
+  justification: <referencia ao finding SPV-XX em EVIDENCIA ou citacao da spec>
+```
+
+Regras (de `.claude/rules/agent-contracts.md`):
+- Esta secao e **opcional** — omitir inteiramente se nao ha mudanca concreta a propor
+- Cada item e proposta acionavel, nao descricao em prose
+- `target` deve ser rastreavel
+- `operation` e valor literal (add/modify/remove)
+- `justification` aponta para finding ID (SPV-XX) ou para trecho citado da spec
+- Itens sem justificativa sao rejeitados pelo command invocador

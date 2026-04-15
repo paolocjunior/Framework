@@ -6,6 +6,10 @@ Esta rule define o self-check interno que o `/plan` e o agent `planner` executam
 Para verificacao formal e independente de um plano ja finalizado, usar o command `/plan-review`.
 Total de passos: 12, mais pré-check obrigatório.
 
+Padrões de erro catalogados em `.claude/rules/implementation-quality.md` (Padrões 1-23) devem ser consultados como referência durante a construção. Em particular:
+- **Padrão 22** (recurso validado no startup ausente em testes) → aplicar no Passo 8 quando o plano inclui testes de integração que inicializam a aplicação completa
+- **Padrão 23** (hierarquia de relógios) → aplicar no Passo 8 quando o plano envolve lógica temporal (TTL, expiração, agendamento, rate limit)
+
 ## Propósito
 
 Definir o procedimento que o Claude Code deve executar antes de finalizar um plano de implementação. Este procedimento complementa `.claude/rules/implementation-quality.md` (que define o que pode estar errado) com instruções de como encontrar e corrigir problemas antes de apresentar o plano.
@@ -168,6 +172,7 @@ Verificar que a seção de verificação/checklist do plano não promete nada qu
 - Há componente mencionado como "dual mode" na verificação sem que o fluxo de edição esteja definido no corpo?
 - Há resultado esperado não-determinístico na verificação? Expressões como "200 ou 204", "retorna X ou Y", "pode ser A ou B" não são mecanicamente verificáveis — escolher um valor exato ou definir regra precisa de quando cada valor se aplica
 - Há fork de implementação não resolvido no plano? Expressões como "usar A ou B", "via X ou dependência Y", "decidir durante implementação" deixam ambiguidade que afeta a arquitetura (ex: fixtures de teste, conftest.py, imports). Cada fork deve ser resolvido no plano, não delegado ao implementador
+- Para cada caminho de erro tratado pelo módulo: o plano inclui uma matriz de erros (status × tipo × handler × UX × recuperação)? Verificação lista "trata erro" sem mapear explicitamente quais códigos/tipos produzem quais respostas é planejamento incompleto — o implementador improvisa formatos de erro divergentes por endpoint. Ver `.claude/rules/integration-checklist.md` seção "Matriz de erros como deliverable do plano"
 
 ### Se a resposta for "não"
 
@@ -185,10 +190,50 @@ Verificar que toda responsabilidade de negócio relevante tem arquivo designado 
 - Etapas de inicialização, setup ou bootstrap do pipeline têm arquivo próprio, ou estão todas caindo em um arquivo de entry point genérico?
 - Lógica de recuperação, descoberta de dados ou configuração crítica tem arquivo designado?
 - Mapas de decisão (tabela de veredictos, dispatch de eventos, mapeamento de estados) têm arquivo designado E cobertura verificada contra todos os casos definidos na spec?
+- Para cada dependência temporal (lógica que lê relógio, expiração, TTL, agendamento, rate limit): o plano declara se usa injectable clock, fixed timestamp fixture, sleep com tolerância, ou relógio global direto? A escolha segue a hierarquia do Padrão 23 em `.claude/rules/implementation-quality.md` (injectable clock > fixed timestamp fixture > sleep com tolerância > proibido)?
+- Para cada módulo que recebe dependências (banco, cache, HTTP client, relógio, logger, gerador de id): o contrato de injeção está explícito no plano — quais dependências entram pelo construtor/parâmetro vs quais são acessadas via import global? Um módulo testável expõe suas dependências; um módulo que importa globais é difícil de isolar em teste.
+- Para cada interface/contrato declarado entre módulos (tipos de entrada, tipos de saída, exceções lançadas, efeitos colaterais declarados): o plano especifica a forma exata do contrato, ou apenas descreve em prose?
 
 ### Se a resposta for "não"
 
-Criar o arquivo designado e listar suas responsabilidades explicitamente no plano. "Será feito em X" sem especificar o quê é planejamento incompleto — o implementador improvisa ou concentra responsabilidades heterogêneas em um arquivo de entry point.
+Criar o arquivo designado e listar suas responsabilidades explicitamente no plano. "Será feito em X" sem especificar o quê é planejamento incompleto — o implementador improvisa ou concentra responsabilidades heterogêneas em um arquivo de entry point. Para dependências temporais, declarar explicitamente qual nível da hierarquia de relógios será usado. Para contratos de DI, declarar quais dependências são injetadas vs globais — evitar ambiguidade que o implementador resolve por conveniência.
+
+### Componentes críticos cross-cutting
+
+Subseção obrigatória quando o plano envolve endpoints, operações de mutação, middleware, handlers globais ou error handlers. A ausência desta subseção no plano é o vetor mais comum de findings tardios em `/review` e `/audit` — riscos que deveriam ser previstos e testados antes do código, mas só aparecem depois. O objetivo é **mover esses riscos para o planejamento**, não descobri-los na revisão.
+
+#### Para cada endpoint, operação ou fluxo de mutação
+
+- [ ] Classificar contra a **Security Regression Matrix** de `.claude/rules/testing.md` — declarar Classe A, B, C, D ou "fora da matriz" com justificativa
+- [ ] Para **Classe A** (toggles: like/follow/favorite/vote) com estado compartilhado → teste de concorrência declarado como deliverable do plano
+- [ ] Para **Classe B** (saldo/crédito/estoque/recurso compartilhado) → teste de concorrência obrigatório, lock declarado no recurso compartilhado (não apenas no item individual)
+- [ ] Para **Classe C** (jobs/webhooks/idempotência) → teste de replay, idempotency key e reprocessamento após timeout declarado
+- [ ] Para **Classe D** (lógica de negócio/anti-fraude) → teste de cenários de abuso, auto-benefício bloqueado e invariantes contábeis declarado
+- [ ] Se "fora da matriz" — justificativa explícita de por que a classificação não se aplica (não apenas omitir)
+
+#### Para cada middleware, interceptor, handler global, rate limiter, auth middleware, security header middleware, CORS/CSRF middleware ou logger global
+
+- [ ] Declarar **efeito observável externo** — o que a requisição vê (status, header, body, redirect, bloqueio)
+- [ ] Declarar **efeito observável interno** quando aplicável — log emitido com campos esperados, métrica incrementada, tracing/span criado, `request_id` propagado
+- [ ] Declarar **teste dedicado** como deliverable — teste que prova o efeito observável do controle, não apenas que o endpoint respondeu com sucesso
+- [ ] Ver `.claude/rules/testing.md` seção **Infraestrutura cross-cutting testável** para exemplos concretos do formato do teste
+
+#### Para cada error handler (incluindo catch-all/fallback terminal)
+
+- [ ] Mapear na matriz de erros (8 colunas) de `.claude/rules/integration-checklist.md`: status, tipo/código, handler, body, UX, recuperação, logging/diagnóstico, teste
+- [ ] Linha explícita para o catch-all/fallback terminal (`5xx SERVER_ERROR`) — não apenas erros de servidor conhecidos como erro de banco
+- [ ] Catch-all declara: log com stack trace obrigatório, body seguro (sem stack trace/SQL/path interno), teste que valida ambos os efeitos
+- [ ] Referenciar o Padrão 24 em `.claude/rules/implementation-quality.md` para regras de handler terminal e exceções heterogêneas
+
+#### Para cada consumo de dado externo (arquivo, cache, fila, API externa, JSON/JSONB em banco)
+
+- [ ] Declarar ponto de **validação de schema** antes do unpacking — parser/modelo/validator adequado ao stack
+- [ ] Declarar teste para os 4 cenários do Padrão 25 em `.claude/rules/implementation-quality.md` (inválido sintaticamente, tipo raiz errado, shape errado, item inválido) quando o dado é persistido fora do processo
+- [ ] Declarar estratégia de recuperação por classe de erro — transitório vs corrupção vs schema inválido não compartilham o mesmo fallback
+
+#### Regra de conclusão
+
+Se qualquer item acima for aplicável ao escopo do plano e não estiver declarado, o plano está **incompleto** — não apresentar ao usuário para aprovação até preencher. Esta subseção existe para antecipar no `/plan` o que hoje aparece apenas em `/review` ou `/audit`; omiti-la aqui significa empurrar descoberta para depois do código estar escrito.
 
 ---
 

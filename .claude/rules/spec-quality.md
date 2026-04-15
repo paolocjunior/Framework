@@ -42,6 +42,20 @@ Esta seção verifica **paridade** entre as três camadas da spec. Problemas aqu
 - Modo de teste não permite validar a entrega prometida
 - Critérios de aceite são insuficientes para confirmar a implementação
 
+## Convenção de notação literal
+
+Quando a spec descreve um valor que aparecerá literalmente em código (enum, string comparada, nome de campo, chave de artefato, token de status, nome de evento), usar notação explícita:
+
+| Notação | Significado | Contrato |
+|---------|-------------|----------|
+| `[literal]"X"` | Valor exato que deve aparecer no código produzido | Implementação DEVE reproduzir o token caractere por caractere |
+| `[example]"X"` | Exemplo ilustrativo; variantes equivalentes são aceitáveis | Implementação PODE divergir desde que a semântica seja preservada |
+| `[equivalent]"X"` | Comportamento equivalente ao valor citado; semântica importa mais que o literal | Implementação deve manter paridade funcional, não textual |
+
+Ausência de notação em valor que aparecerá em código é **flag** — o leitor não sabe se o token é contrato ou descrição. Specs que misturam literal e descrição sem marcação geram divergência silenciosa entre contrato e implementação, detectada apenas no `/verify-spec`.
+
+Aplica-se a: valores de enum, códigos de erro, nomes de eventos/ações, chaves de artefatos JSON, strings comparadas em runtime, nomes de campos de API, labels que aparecem em UI quando o texto exato é parte do contrato.
+
 ## Classificação obrigatória de cada recomendação
 
 Cada item reportado pelo `/spec-check` deve ser classificado por tipo:

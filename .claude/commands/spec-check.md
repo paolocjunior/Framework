@@ -37,6 +37,7 @@ Verificar sistematicamente:
 - Decisão crítica implícita?
 - Ownership de navegação/estado indefinido?
 - Feature descrita sem comportamento operacional suficiente?
+- Valores que aparecerão em código (enums, códigos de erro, nomes de eventos, chaves de artefato, strings comparadas, nomes de campos de API) estão marcados com notação explícita `[literal]"X"` / `[example]"X"` / `[equivalent]"X"` conforme `.claude/rules/spec-quality.md#Convenção-de-notação-literal`? Ausência de notação em valor que aparecerá em código é Flag — registrar em Required Actions como Clarification.
 
 ### 4. Modelo de dados e integridade
 - Entidades principais definidas?

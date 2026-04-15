@@ -66,6 +66,8 @@ Agent 2: consistency-checker
 #### 3a. Deduplicar
 Se ambos agents reportaram o mesmo problema, manter o achado com melhor evidencia.
 
+Se ambos agents incluiram item em APPLICABLE_DELTA apontando para o mesmo `target`, consolidar num unico item deduplicado. Se propoem `operation` conflitantes para o mesmo `target` (ex: um diz modify X → Y, outro diz remove X), aplicar precedencia documental (spec > projeto > plano) e registrar o conflito como achado de CONFIDENCE: MEDIA em "Conflitos entre agents".
+
 #### 3b. Resolver conflitos
 Se agents discordam, aplicar precedencia documental (spec > projeto > plano).
 Se evidencia e ambigua, marcar CONFIDENCE: MEDIA e recomendar revisao humana.
@@ -149,8 +151,17 @@ Formato obrigatorio:
 ## Conflitos entre agents
 [lista de divergencias resolvidas e como, ou "Nenhum"]
 
+## Delta proposto (APPLICABLE_DELTA consolidado)
+[Consolidacao dos itens APPLICABLE_DELTA dos 2 agents, deduplicados. Cada item no formato:
+  - target: <arquivo/secao/linha>
+    operation: add | modify | remove
+    before: <trecho atual>
+    after: <trecho proposto>
+    justification: <referencia ao achado SPV-XX ou IC-XX>
+Se nenhum agent propos delta: "Nenhum delta acionavel proposto".]
+
 ## Instrucao de correcao
-[Se NEEDS_REVISION ou APPROVED_WITH_CORRECTIONS: instrucao aplicavel diretamente]
+[Se NEEDS_REVISION ou APPROVED_WITH_CORRECTIONS: instrucao aplicavel diretamente — usar "Delta proposto" acima como base quando houver]
 [Se APPROVED: "Plano pronto para implementacao."]
 ```
 

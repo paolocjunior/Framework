@@ -217,6 +217,77 @@ Frameworks backend frequentemente validam diretórios, arquivos de configuraçã
 
 ---
 
+## Categoria 9 — Tempo e Relógios
+
+> Padrões desta categoria aplicam-se a código e testes que dependem de tempo, datas, expirações, TTLs, agendamentos ou qualquer lógica temporal.
+
+### Padrão 23: Hierarquia de relógios em código e testes
+
+Código que consulta tempo via chamadas globais diretas (`Date.now()`, `datetime.now()`, `time.time()`, `System.currentTimeMillis()`) acopla lógica de negócio a relógio de parede não-determinístico. Testes que dependem de tempo tendem a usar `sleep()` ou `setTimeout()` para "esperar o evento acontecer", introduzindo flakiness (testes falham esporadicamente quando a máquina está lenta) e lentidão (suite leva minutos por somar esperas).
+
+- **O que acontece:** testes ficam flakes em CI com carga variável, bugs de fuso/DST aparecem em produção mas não em dev, expirações testadas com `sleep(5)` exigem teste de 5s para cada cenário, timeouts agregados fazem suite levar minutos. Código de produção mistura lógica de negócio com leitura direta do relógio, dificultando reuso e teste.
+
+- **Como evitar — hierarquia de 4 níveis em ordem decrescente de preferência:**
+
+  1. **Injectable clock (preferido)** — lógica de negócio recebe uma abstração de relógio (interface `Clock`, função `now()`, callable). Implementação de produção usa relógio real; testes injetam relógio controlado (`FakeClock`, `FrozenTime`, `TestClock`). Permite avançar tempo em saltos determinísticos (`clock.advance(timedelta(hours=2))`) sem esperar.
+
+  2. **Fixed timestamp fixture (segundo melhor)** — teste congela o tempo em valor fixo via mock do relógio global (`mock.patch('module.datetime')`, `freezegun`, `MockDate`). Útil quando refatorar para injectable clock não é viável. Menos robusto que injectable porque depende do local exato onde o módulo importa a função de tempo.
+
+  3. **Sleep com tolerância explícita (último recurso)** — quando não há alternativa (teste de integração end-to-end real, verificação de throttling efetivo), usar `sleep()` com margem declarada e comentário justificando. Tolerância deve ser relaxada (ex: `sleep(2.0)` para evento de 1s, com asserção `elapsed >= 1.0 and elapsed < 3.0`).
+
+  4. **Proibido:** relógio global direto (`Date.now()`, `datetime.now()`, `time.time()`) embutido em lógica testável, sem camada de abstração, combinado com `sleep()` calibrado no limite (`sleep(1.0)` para evento de 1s sem margem). Garante flakiness.
+
+- **Regras operacionais:**
+  - Qualquer módulo novo com lógica temporal (expiração, TTL, janela de rate limit, agendamento, snapshot temporal) DEVE usar injectable clock desde o primeiro commit — retrofit custa mais.
+  - Suites de teste que somam mais que ~5s em `sleep()` são sintoma de fuga do padrão. Rebaixar para injectable clock ou fixed timestamp.
+  - Código que gera timestamps para persistir em banco deve registrar timezone explícito (UTC preferido) — nunca timestamps naive.
+  - Comparações de tempo devem usar tolerância explícita quando envolvem serialização/round-trip (precisão de milissegundos perdida em JSON, banco pode truncar para segundos).
+
+- **Sinal de alerta:** teste falha apenas em CI e passa localmente; suite de testes leva mais de 30s em projeto pequeno; bug só aparece entre 23:00 e 01:00 UTC; código contém `Date.now() - lastTime > THRESHOLD_MS` sem mock no teste.
+
+---
+
+## Categoria 10 — Tratamento de Erros e Dados Externos
+
+> Padrões desta categoria aplicam-se a qualquer projeto que tenha handlers de último recurso (catch-all, global exception handlers, fallbacks genéricos) ou que consuma dados externos (arquivos, cache, fila, API externa, storage JSON/JSONB em banco).
+
+### Padrão 24: Handler terminal sem diagnóstico e exceções heterogêneas
+
+Handlers de último recurso são a última chance de preservar diagnóstico antes de responder ao usuário. Se retornam erro sem registrar o que aconteceu internamente, a falha vira silenciosa — ninguém descobre que algo quebrou até o comportamento degradado ser percebido muito depois. Blocos `except` que capturam classes heterogêneas de erro com a mesma estratégia de recuperação transformam causas distintas (transitório, corrupção, violação de schema, permissão) em um único fallback que esconde o que realmente aconteceu.
+
+- **O que acontece:** catch-all retorna 500 ao usuário sem gravar stack trace nem contexto; erro transitório de I/O é tratado igual a corrupção permanente de dado, sobrescrevendo o arquivo corrompido com um estado "limpo" que destrói evidência; violação de schema é tratada como erro de permissão, levando a mensagens de UX inadequadas; o time de ops descobre o problema horas ou dias depois sem saber onde começar a investigar.
+- **Por que não é detectado:** testes focam no caminho feliz; handler terminal é exercitado apenas em incidentes reais; ausência de log é invisível até o incidente acontecer; agrupamento heterogêneo de exceções compila e passa em testes porque cada cenário é testado individualmente, não em conjunto.
+- **Como evitar:**
+  - Todo handler de último recurso (catch-all, global exception handler, fallback genérico) DEVE registrar log com stack trace ou equivalente interno antes de responder
+  - Usuário final nunca recebe stack trace, query SQL, path interno ou detalhe técnico — recebe mensagem segura; diagnóstico vai para log, não para response
+  - Blocos com `except (X, Y, Z)` heterogêneo DEVEM distinguir a estratégia de recuperação por classe de erro; se o bloco captura `(JsonError, OSError, TypeError)`, cada classe tem tratamento próprio (transitório = retry/log/reraise; corrupção = preservar dado original + criar novo; violação de schema = validation error + diagnóstico específico)
+  - Erro transitório, erro de formato, erro de permissão e violação de schema não podem cair no mesmo fallback sem justificativa explícita documentada
+- **Sinais de alerta:**
+  - `except Exception` retorna 500 sem `_logger.exception`, `logger.error(exc_info=True)` ou equivalente
+  - `except (A, B, C)` agrupa I/O transitório, corrupção de formato e erro lógico com a mesma linha de recuperação
+  - Handler 5xx existe mas nenhum teste exercita caminho de erro e nenhum log é emitido em ambiente de teste
+
+### Padrão 25: Dados externos carregados com shape assumido
+
+Todo dado proveniente de arquivo (JSON, YAML, config), cache local, fila de mensagens, resposta de API externa ou coluna JSON/JSONB em banco DEVE ser tratado como entrada externa não-confiável — mesmo quando foi escrito pelo próprio sistema em execução anterior. JSON válido sintaticamente não significa schema válido. Código que faz `data["field"]` direto após `json.load()` sem validação prévia assume shape que pode não existir.
+
+- **O que acontece:** `TypeError: list indices must be integers, not str` em produção quando arquivo JSON contém `[]` onde o código esperava `{}`; `KeyError: 'tasks'` quando API externa mudou nome do campo para `items` sem avisar; 500 silencioso quando cache local foi corrompido por crash do processo anterior; código "funciona em dev" e quebra apenas com dados reais acumulados em produção.
+- **Por que não é detectado:** mocks em teste têm shape sempre correto; fixture de desenvolvimento nunca tem dado corrompido ou desatualizado; TypeScript/type checker aceita porque o type foi declarado manualmente, não derivado do dado real; primeira vez que o formato real diverge do esperado é em produção.
+- **Casos obrigatórios a cobrir (taxonomia de 4 cenários):**
+  1. **Conteúdo inválido sintaticamente** — arquivo contém `{` truncado, bytes quebrados, YAML malformado, JSON com vírgula extra
+  2. **Tipo raiz errado** — esperado `{}`, recebido `[]`; esperado objeto, recebido string; esperado array, recebido `null`
+  3. **Shape errado (válido mas semanticamente diferente)** — esperado `{"tasks": []}`, recebido `{"items": []}`; campo renomeado; campo obrigatório ausente; campo com tipo diferente (`string` onde esperado `number`)
+  4. **Item inválido dentro de lista válida** — `{"tasks": [{"id": "abc"}]}` onde `id` deveria ser numérico; item parcialmente populado; item com enum fora do vocabulário esperado
+- **Regra preventiva:** validar schema do dado antes de confiar em unpacking. Usar parser/modelo/validator adequado ao stack (pydantic, zod, joi, jsonschema, serde). `data["field"]` direto após `json.load()`/`JSON.parse()` sem validação prévia é anti-padrão.
+- **Regra reativa:** quando recuperação é necessária, separar formato inválido de erro transitório de I/O (referência cruzada com Padrão 24). Recuperação de corrupção permanente preserva dado original + cria novo; recuperação de erro transitório faz retry/log/reraise.
+- **Sinais de alerta:**
+  - `data["field"]` ou `data.field` logo após `json.load()` / `JSON.parse()` / `yaml.safe_load()` sem validação intermediária
+  - `response.data.items` assumido sem checar contrato real da API externa (status, shape, presença do campo)
+  - Cache, config ou storage local usado como se fosse confiável porque "foi escrito pelo próprio sistema"
+  - Ausência de teste para shape errado, tipo raiz errado ou item inválido quando o dado é persistido fora do processo
+
+---
+
 ## Como usar esta rule
 
 Ao criar um plano de implementação:
@@ -229,4 +300,7 @@ Ao criar um plano de implementação:
 6. Em projetos React Native: revisar componentes e bibliotecas de overlay contra os padrões 16-19
 7. Em projetos com implementação faseada ou fluxo de controle assíncrono: revisar arquitetura e controle de fluxo contra os padrões 20-21
 8. Em projetos backend com testes de integração: revisar recursos validados no startup contra o padrão 22
-9. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final
+9. Em qualquer projeto com lógica temporal (expiração, TTL, agendamento, rate limit): revisar contra o padrão 23
+10. Em qualquer projeto com handlers de último recurso, catch-all, fallback genérico ou blocos `except` heterogêneos: revisar contra o padrão 24
+11. Em qualquer projeto que consome dados externos (arquivos, cache, fila, API externa, JSON/JSONB em banco): revisar contra o padrão 25
+12. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final

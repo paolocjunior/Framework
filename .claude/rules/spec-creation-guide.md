@@ -181,6 +181,20 @@ Se algo falhar nesta checagem, resolver durante a criacao — nao deixar para o 
 
 ---
 
+## Notacao literal de valores que aparecerao em codigo
+
+Durante a criacao da spec, sempre que um valor sera reproduzido literalmente em codigo (enum, string comparada, nome de campo, chave de artefato, token de status, nome de evento), usar notacao explicita:
+
+- `[literal]"X"` — contrato textual: implementacao deve reproduzir o token exato
+- `[example]"X"` — exemplo ilustrativo: variantes equivalentes sao aceitaveis
+- `[equivalent]"X"` — equivalencia semantica: paridade funcional importa mais que o literal
+
+Regra de questionamento: quando o usuario mencionar um valor que soa como token tecnico, perguntar explicitamente se e contrato literal ou descricao. Exemplo: usuario diz "o status e pending" → perguntar *"esse valor `pending` aparecera literalmente no codigo (enum, comparacao, JSON de API) ou e apenas descricao do comportamento?"*. Se contrato literal, registrar como `[literal]"pending"`. Se ilustrativo, registrar como `[example]"pending"`.
+
+Nunca deixar valor de codigo sem marcacao — ambiguidade entre descricao e contrato e fonte comprovada de divergencia entre spec e implementacao.
+
+---
+
 ## Handoff para /spec-check
 
 A spec gerada pelo `/spec-create` DEVE ser submetida ao `/spec-check` como gate formal. O `/spec-create` gera o rascunho; o `/spec-check` valida a prontidao.

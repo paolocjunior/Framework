@@ -1,0 +1,222 @@
+{
+  "schema_version": "1",
+  "description": "Data file consumed by gitignore-guard.sh. Declares the minimum patterns that a project's .gitignore should cover when specific stack markers are present. Each rule is ONE required pattern concept; variant spellings of the same pattern are listed under required_patterns with match_any=true (so .env and .env/ satisfy the same rule). Distinct concepts (e.g. __pycache__ vs *.pyc) are declared as SEPARATE rules — this ensures the 'minimum complete set' semantics: every rule must be satisfied for its stack. Hook is informational only, never blocks.",
+  "rules": [
+    {
+      "id": "node-modules",
+      "description": "Node.js projects must ignore node_modules directory",
+      "stack_markers": ["package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"],
+      "required_patterns": ["node_modules", "node_modules/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "node_modules contains thousands of files and should never be committed; accidental staging via git add -A is common"
+    },
+    {
+      "id": "python-pycache-dir",
+      "description": "Python projects should ignore __pycache__ directories",
+      "stack_markers": ["pyproject.toml", "requirements.txt", "setup.py", "Pipfile"],
+      "required_patterns": ["__pycache__", "__pycache__/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Python auto-generates __pycache__ directories on import; committing them causes merge conflicts"
+    },
+    {
+      "id": "python-pyc-files",
+      "description": "Python projects should ignore *.pyc bytecode files",
+      "stack_markers": ["pyproject.toml", "requirements.txt", "setup.py", "Pipfile"],
+      "required_patterns": ["*.pyc"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Compiled bytecode files are machine-specific and regenerable; never commit"
+    },
+    {
+      "id": "python-venv",
+      "description": "Python projects should ignore virtual environments",
+      "stack_markers": ["pyproject.toml", "requirements.txt", "setup.py", "Pipfile"],
+      "required_patterns": [".venv", "venv", "venv/", ".venv/", "env/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Virtual environments contain thousands of binary files and are machine-specific; never commit"
+    },
+    {
+      "id": "env-base",
+      "description": "Projects with .env files should ignore them",
+      "stack_markers": [".env", ".env.local", ".env.development", ".env.production", ".env.example"],
+      "required_patterns": [".env"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Committed .env files are the most common source of leaked credentials on public repos"
+    },
+    {
+      "id": "env-local",
+      "description": "Projects with .env files should also ignore local overrides",
+      "stack_markers": [".env.local", ".env.development.local", ".env.production.local"],
+      "required_patterns": [".env.local", ".env.*.local"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Local .env overrides contain per-developer secrets and must never be committed"
+    },
+    {
+      "id": "rust-target",
+      "description": "Rust projects must ignore target directory",
+      "stack_markers": ["Cargo.toml", "Cargo.lock"],
+      "required_patterns": ["target", "target/", "/target"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Rust build artifacts in target/ can reach gigabytes and are entirely regenerable"
+    },
+    {
+      "id": "go-bin-dir",
+      "description": "Go projects should ignore the bin/ directory",
+      "stack_markers": ["go.mod", "go.sum"],
+      "required_patterns": ["/bin", "bin/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Go compiled binaries are machine-specific and should not be committed"
+    },
+    {
+      "id": "go-test-binaries",
+      "description": "Go projects should ignore compiled test binaries",
+      "stack_markers": ["go.mod", "go.sum"],
+      "required_patterns": ["*.test"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "`go test -c` produces *.test binaries that are machine-specific"
+    },
+    {
+      "id": "java-target-dir",
+      "description": "Maven projects should ignore target/",
+      "stack_markers": ["pom.xml"],
+      "required_patterns": ["target/", "/target/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Maven output directory is regenerable and bloats the repo"
+    },
+    {
+      "id": "java-build-dir",
+      "description": "Gradle projects should ignore build/",
+      "stack_markers": ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"],
+      "required_patterns": ["build/", "/build/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Gradle output directory is regenerable and bloats the repo"
+    },
+    {
+      "id": "java-class-files",
+      "description": "Java projects should ignore *.class files",
+      "stack_markers": ["pom.xml", "build.gradle", "build.gradle.kts"],
+      "required_patterns": ["*.class"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Compiled .class bytecode is machine-specific and regenerable"
+    },
+    {
+      "id": "gradle-cache",
+      "description": "Gradle projects should ignore .gradle/ cache",
+      "stack_markers": ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"],
+      "required_patterns": [".gradle/", ".gradle"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Gradle's local cache contains machine-specific state"
+    },
+    {
+      "id": "ide-jetbrains",
+      "description": "Projects with JetBrains IDEs should ignore .idea/",
+      "stack_markers": [".idea", "*.iml"],
+      "required_patterns": [".idea/", ".idea"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "JetBrains config contains absolute paths and user-specific settings"
+    },
+    {
+      "id": "ide-vscode",
+      "description": "Projects with VS Code should consider ignoring .vscode/ (case-by-case)",
+      "stack_markers": [".vscode"],
+      "required_patterns": [".vscode/", ".vscode"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "VS Code settings may contain per-developer paths; some teams commit shared config instead"
+    },
+    {
+      "id": "ide-jetbrains-iml",
+      "description": "JetBrains module files should be ignored",
+      "stack_markers": [".idea", "*.iml"],
+      "required_patterns": ["*.iml"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "*.iml files contain module paths specific to the developer's machine"
+    },
+    {
+      "id": "os-macos",
+      "description": "Projects should ignore macOS metadata files",
+      "stack_markers": [".DS_Store"],
+      "required_patterns": [".DS_Store"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "macOS Finder creates .DS_Store in every directory it views; no repository value"
+    },
+    {
+      "id": "os-windows-thumbs",
+      "description": "Projects should ignore Windows thumbnail cache",
+      "stack_markers": ["Thumbs.db"],
+      "required_patterns": ["Thumbs.db"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Windows Explorer generates Thumbs.db automatically; no repository value"
+    },
+    {
+      "id": "os-windows-desktop-ini",
+      "description": "Projects should ignore Windows desktop.ini files",
+      "stack_markers": ["desktop.ini"],
+      "required_patterns": ["desktop.ini"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Windows creates desktop.ini with per-folder display settings; no repository value"
+    },
+    {
+      "id": "frontend-dist",
+      "description": "Frontend build output should be ignored (dist/)",
+      "stack_markers": ["vite.config.ts", "vite.config.js", "webpack.config.js", "rollup.config.js"],
+      "required_patterns": ["dist", "dist/", "/dist"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Frontend build output is regenerable; committing causes merge conflicts and bloats the repo"
+    },
+    {
+      "id": "frontend-build",
+      "description": "Frontend build output should be ignored (build/)",
+      "stack_markers": ["package.json"],
+      "required_patterns": ["build", "build/", "/build"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Create-React-App and similar produce build/; not intended for version control"
+    },
+    {
+      "id": "nextjs-output",
+      "description": "Next.js projects should ignore .next/ and out/",
+      "stack_markers": ["next.config.js", "next.config.ts", "next.config.mjs"],
+      "required_patterns": [".next", ".next/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Next.js build cache and server output are regenerable"
+    },
+    {
+      "id": "nextjs-export",
+      "description": "Next.js static export directory should be ignored",
+      "stack_markers": ["next.config.js", "next.config.ts", "next.config.mjs"],
+      "required_patterns": ["out", "out/"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Next.js static export output is regenerable from source"
+    },
+    {
+      "id": "framework-last-run-artifacts",
+      "description": "Framework last-run artifacts are ephemeral and should be ignored",
+      "stack_markers": [".claude/runtime/sensors-last-run.json", ".claude/runtime/behaviours-last-run.json", ".claude/runtime/architecture-linters-last-run.json"],
+      "required_patterns": [".claude/runtime/*-last-run.json", ".claude/runtime/sensors-last-run.json", ".claude/runtime/behaviours-last-run.json", ".claude/runtime/architecture-linters-last-run.json"],
+      "match_any": true,
+      "severity": "warn",
+      "rationale": "Last-run JSON artifacts are per-run outputs and can be regenerated; committing them causes churn"
+    }
+  ]
+}
