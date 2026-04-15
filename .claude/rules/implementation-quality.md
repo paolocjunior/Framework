@@ -202,6 +202,21 @@ Função usa `throw` para sinalizar ao caller que ele deve fazer retry, continua
 
 ---
 
+## Categoria 8 — Backend / Testing
+
+> Padrões desta categoria aplicam-se a projetos backend que inicializam a aplicação completa em testes de integração.
+
+### Padrão 22: Recurso validado no startup ausente no ambiente de teste
+
+Frameworks backend frequentemente validam diretórios, arquivos de configuração, templates, clients externos e middleware quando a aplicação é criada (startup), não quando a rota correspondente é chamada. Testes que inicializam a aplicação completa (`TestClient(app)`, `supertest(app)`, `createTestApp()`) precisam satisfazer todos os requisitos de startup, incluindo componentes não exercitados pelo teste.
+
+- **O que acontece:** o teste falha antes da primeira asserção, durante import ou criação da app. A mensagem de erro aponta para o mount/middleware/config, não para o endpoint testado. O comportamento varia por framework: Starlette/FastAPI podem lançar exceção na criação/mount da aplicação quando `StaticFiles(check_dir=True)` aponta para diretório ausente; Express/Koa geralmente falham silenciosamente na primeira request para aquela rota.
+- **Exemplos:** `StaticFiles(directory="frontend")` com diretório inexistente; loader de templates ou assets configurado no startup; client de banco ou cache inicializado no import antes de env de teste; middleware que exige secret ou config ausente.
+- **Como evitar:** ao planejar, listar recursos validados no startup e garantir que existem antes de criar a app nos testes. Para apps com frontend estático, criar o diretório via fixture antes de instanciar `TestClient`, ou condicionar o mount com verificação de existência. Preferir factory `create_app(config)` com overrides de storage/config para testes.
+- **Sinal de alerta:** `app.mount()`, `StaticFiles()`, loader de templates/assets, client externo ou middleware com configuração obrigatória no mesmo arquivo em que a app global é criada, sem factory ou variante de configuração para testes.
+
+---
+
 ## Como usar esta rule
 
 Ao criar um plano de implementação:
@@ -213,4 +228,5 @@ Ao criar um plano de implementação:
 5. Revisar integração frontend↔backend contra os padrões 14-15
 6. Em projetos React Native: revisar componentes e bibliotecas de overlay contra os padrões 16-19
 7. Em projetos com implementação faseada ou fluxo de controle assíncrono: revisar arquitetura e controle de fluxo contra os padrões 20-21
-8. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final
+8. Em projetos backend com testes de integração: revisar recursos validados no startup contra o padrão 22
+9. Executar o procedimento de `.claude/rules/plan-construction.md` para verificação final

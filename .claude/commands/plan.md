@@ -45,10 +45,10 @@ Apresentar o plano e aguardar aprovação ANTES de implementar qualquer código.
 
 Se o plano for aprovado com alterações, atualizar o plano e reapresentar.
 
-Se o projeto usa o framework (possui `.claude/runtime/`) e o plano envolve testes ou validações mecânicas, incluir nota sobre bootstrap de sensores/behaviours quando `sensors.json` ou `behaviours.json` não existirem. Não presumir que existem — verificar e sugerir criação como passo do plano quando ausentes.
+Executar o pré-check obrigatório de `.claude/rules/plan-construction.md` antes de iniciar os passos: verificar OIs `antes_do_plan` pendentes e artefatos do framework prometidos pela spec (`sensors.json`, `behaviours.json`, contratos, linters, gaps).
 
 Consultar `.claude/rules/implementation-quality.md` para evitar padrões de erro recorrentes ao criar planos.
-Executar os 11 passos de `.claude/rules/plan-construction.md` antes de finalizar o plano.
+Executar o pré-check obrigatório e os 12 passos de `.claude/rules/plan-construction.md` antes de finalizar o plano.
 
 ## Avaliação condicional de risco
 
@@ -80,6 +80,18 @@ Aguardar o veredicto e aplicar o mapa abaixo:
 
 Se nenhum gatilho estiver ativo, pular esta etapa — não invocar o agent, poupa tokens.
 
+## Codex Adversarial Review (Camada 4)
+
+Após consolidar o plano inicial e **antes de apresentá-lo ao usuário**, invocar `/codex:adversarial-review` passando como focus text:
+- O plano completo (todos os elementos 1-8)
+- A spec relevante (ou as seções mais críticas para o plano)
+- Instrução: "Valide o plano contra a spec e a viabilidade técnica. Identifique: (1) inconsistências entre plano e spec, (2) riscos não declarados na seção de riscos, (3) dependências circulares entre fases, (4) suposições não verificadas sobre o código existente"
+
+Processar findings conforme protocolo em `CLAUDE.md` seção "Cross-Model Review (Camada 4)".
+Executar o Passo 12 de `.claude/rules/plan-construction.md` (Delta pós-Codex), incorporando os findings aceitos ao plano.
+
+O plano apresentado ao usuário para aprovação deve refletir o estado pós-Codex. Não solicitar aprovação sobre plano pré-Codex como se fosse o plano final.
+
 ## Gate de implementação
 
 Ao finalizar o plano, remover o marker de aprovação anterior (se existir) para forçar novo ciclo de `/plan-review`:
@@ -89,14 +101,3 @@ rm -f .claude/runtime/.plan-approved
 ```
 
 Isso garante que o hook `pre-implementation-gate.sh` bloqueie código-fonte até que o `/plan-review` aprove este novo plano.
-
----
-
-## Codex Adversarial Review (Camada 4)
-
-Após apresentar o plano ao usuário, invocar `/codex:adversarial-review` passando como focus text:
-- O plano completo (todos os elementos 1-8)
-- A spec relevante (ou as seções mais críticas para o plano)
-- Instrução: "Valide o plano contra a spec e a viabilidade técnica. Identifique: (1) inconsistências entre plano e spec, (2) riscos não declarados na seção de riscos, (3) dependências circulares entre fases, (4) suposições não verificadas sobre o código existente"
-
-Ver protocolo completo de Codex review em `CLAUDE.md` seção "Cross-Model Review (Camada 4)".

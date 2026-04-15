@@ -4,13 +4,46 @@
 
 Esta rule define o self-check interno que o `/plan` e o agent `planner` executam ao CONSTRUIR um plano.
 Para verificacao formal e independente de um plano ja finalizado, usar o command `/plan-review`.
-Total de passos: 11.
+Total de passos: 12, mais pré-check obrigatório.
 
 ## Propósito
 
 Definir o procedimento que o Claude Code deve executar antes de finalizar um plano de implementação. Este procedimento complementa `.claude/rules/implementation-quality.md` (que define o que pode estar errado) com instruções de como encontrar e corrigir problemas antes de apresentar o plano.
 
-O Claude Code deve executar estes 11 passos ao criar planos via `/plan` ou via o agent `planner`.
+O Claude Code deve executar o pré-check obrigatório e os 12 passos ao criar planos via `/plan` ou via o agent `planner`.
+
+---
+
+## Pré-check Obrigatório (antes do Passo 1)
+
+Antes de iniciar os 12 passos, executar duas verificações independentes que podem bloquear ou alterar o escopo do plano.
+
+### Verificação 1 — OIs antes_do_plan
+
+Carregar o ledger e listar nominalmente todos os Open Items com tag `antes_do_plan`. Para cada um:
+
+- Status `DONE` → prosseguir
+- Status diferente de `DONE` → parar e declarar: `"OI-XX está pendente e marcado como antes_do_plan — resolver antes de prosseguir com o planejamento."`
+
+Não reportar apenas contagem; listar os IDs verificados e seus status.
+
+### Verificação 2 — Artefatos do Framework Prometidos pela Spec
+
+Varrer a spec por gatilhos específicos abaixo. Para cada gatilho encontrado, verificar se o plano cobre o artefato correspondente.
+
+| Gatilho na spec | Artefato esperado no plano |
+|---|---|
+| `sensors.json`, `/sensors-run` | criação/validação de `.claude/runtime/sensors.json` + `/sensors-run` pós-implementação |
+| `behaviours.json`, `/behaviour-run`, `runtime observável` | criação de `.claude/runtime/behaviours.json` + `/behaviour-run` |
+| `execution contract`, `contrato de execução`, `/contract-create` | prever execução de `/contract-create` após aprovação do plano |
+| `architecture-linters.json`, `/lint-architecture` | criação de `.claude/runtime/architecture-linters.json` + `/lint-architecture` |
+| `capability gaps`, `capability-gaps.json`, `/gaps-scan` | `/gaps-scan` |
+
+Se encontrar menção a artefato não coberto no plano, registrar como pendência explícita: `"Artefato prometido pela spec não incluído no plano: [artefato]. Incluir ou documentar como fora do escopo desta fase."` Nunca omitir silenciosamente.
+
+### Nota sobre `.claude/runtime`
+
+Artefatos declarativos do framework (`sensors.json`, `behaviours.json`, `architecture-linters.json`, contratos) vivem em `.claude/runtime/` e são parte do projeto, não código do produto. O plano não deve incluir `.claude/runtime/*.json` em listas de restrição como "Não modificar: .claude/" — essa restrição aplica-se ao código do framework em `.claude/hooks/`, `.claude/commands/` e `.claude/rules/`, não aos artefatos declarativos que o projeto cria e mantém.
 
 ---
 
@@ -216,11 +249,34 @@ Se a divergência é **intencional** (razão técnica legítima para diferir): d
 
 ---
 
+## Passo 12 — Delta pós-Codex
+
+Após o Codex adversarial review completar (invocado via `plan.md` antes da apresentação ao usuário), incorporar os findings ao plano de forma estruturada.
+
+### Seção obrigatória "Delta pós-Codex" no output do plano
+
+| Campo | Conteúdo |
+|---|---|
+| Findings aceitos | ID + severidade + mudança aplicada (arquivo afetado, natureza da mudança) |
+| Findings rejeitados | ID + evidência concreta que contradiz o finding |
+| Mudanças na lista de arquivos | Arquivos adicionados, removidos ou alterados em relação ao plano pré-Codex |
+| Itens para /plan-review | Pontos que o /plan-review deve inspecionar com atenção adicional |
+
+### Regras
+
+- Cada finding aceito resulta em mudança concreta no plano — não apenas "foi aceito"
+- Findings rejeitados incluem a evidência que os contradiz — não apenas "foi rejeitado"
+- Se o Codex não rodou (timeout, erro), declarar explicitamente na seção e documentar como limitação — não silenciar a ausência
+- A lista de arquivos do plano é atualizada para refletir adições/remoções pós-Codex
+- O plano apresentado ao usuário para aprovação reflete o estado pós-Codex
+
+---
+
 ## Formato de saída
 
 Ao executar esta verificação, o Claude Code não precisa reportar cada passo explicitamente ao usuário. Deve apenas:
 
-1. Executar os 11 passos internamente antes de finalizar o plano
+1. Executar o pré-check obrigatório e os 12 passos internamente antes de finalizar o plano
 2. Corrigir problemas encontrados antes de apresentar
 3. Se houver problema que dependa de decisão do usuário, apresentar o problema com opções antes de finalizar o plano
 
@@ -231,6 +287,8 @@ O objetivo é que o plano apresentado ao usuário já esteja limpo — não que 
 - **Passos 9-11** (scope creep, IDs, fidelidade literal) são a primeira defesa contra regressão de spec — se falharem, o plano implementa algo diferente do que foi aprovado, independente de como os passos 1-8 ficaram
 - **Passos 1-8** garantem consistência interna do plano
 - **Ambos os grupos** devem passar antes de apresentar
+- **Pré-check obrigatório** valida precondições antes de construir — OIs bloqueantes e artefatos prometidos pela spec devem estar resolvidos ou cobertos antes de avançar para os passos 1-12
+- **Passo 12** (Delta pós-Codex) é executado após o Codex review — integra findings ao plano antes de apresentar ao usuário
 
 ---
 

@@ -212,6 +212,8 @@ Regras de composição:
 - Focus text vazio = review geral exploratória (usar na primeira review)
 - Focus text pesa na análise mas não restringe — processar TODOS os findings do Codex
 
+**Vedação:** Nunca usar `/codex:review` quando houver focus text — esse subcomando não aceita instruções focadas. Para validações com focus text, usar sempre `/codex:adversarial-review`.
+
 #### Protocolo de resolução de divergências
 
 Para cada finding do Codex:
