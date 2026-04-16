@@ -6,9 +6,11 @@ Esta rule define o self-check interno que o `/plan` e o agent `planner` executam
 Para verificacao formal e independente de um plano ja finalizado, usar o command `/plan-review`.
 Total de passos: 12, mais pré-check obrigatório.
 
-Padrões de erro catalogados em `.claude/rules/implementation-quality.md` (Padrões 1-23) devem ser consultados como referência durante a construção. Em particular:
+Padrões de erro catalogados em `.claude/rules/implementation-quality.md` (Padrões 1-25) devem ser consultados como referência durante a construção. Em particular:
 - **Padrão 22** (recurso validado no startup ausente em testes) → aplicar no Passo 8 quando o plano inclui testes de integração que inicializam a aplicação completa
 - **Padrão 23** (hierarquia de relógios) → aplicar no Passo 8 quando o plano envolve lógica temporal (TTL, expiração, agendamento, rate limit)
+- **Padrão 24** (handler terminal sem diagnóstico e exceções heterogêneas) → aplicar no Passo 8 quando o plano inclui catch-all, fallback terminal, error handler global ou blocos `except` heterogêneos
+- **Padrão 25** (dados externos com shape assumido) → aplicar no Passo 8 quando o plano consome arquivo, cache, fila, API externa ou coluna JSON/JSONB em banco
 
 ## Propósito
 
@@ -172,7 +174,7 @@ Verificar que a seção de verificação/checklist do plano não promete nada qu
 - Há componente mencionado como "dual mode" na verificação sem que o fluxo de edição esteja definido no corpo?
 - Há resultado esperado não-determinístico na verificação? Expressões como "200 ou 204", "retorna X ou Y", "pode ser A ou B" não são mecanicamente verificáveis — escolher um valor exato ou definir regra precisa de quando cada valor se aplica
 - Há fork de implementação não resolvido no plano? Expressões como "usar A ou B", "via X ou dependência Y", "decidir durante implementação" deixam ambiguidade que afeta a arquitetura (ex: fixtures de teste, conftest.py, imports). Cada fork deve ser resolvido no plano, não delegado ao implementador
-- Para cada caminho de erro tratado pelo módulo: o plano inclui uma matriz de erros (status × tipo × handler × UX × recuperação)? Verificação lista "trata erro" sem mapear explicitamente quais códigos/tipos produzem quais respostas é planejamento incompleto — o implementador improvisa formatos de erro divergentes por endpoint. Ver `.claude/rules/integration-checklist.md` seção "Matriz de erros como deliverable do plano"
+- Para cada caminho de erro tratado pelo módulo: o plano inclui uma matriz de erros (status × tipo/código × handler × body × UX × recuperação × logging/diagnóstico × teste)? Verificação lista "trata erro" sem mapear explicitamente quais códigos/tipos produzem quais respostas é planejamento incompleto — o implementador improvisa formatos de erro divergentes por endpoint. Ver `.claude/rules/integration-checklist.md` seção "Matriz de erros como deliverable do plano"
 
 ### Se a resposta for "não"
 
