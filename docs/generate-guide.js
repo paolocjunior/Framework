@@ -315,6 +315,7 @@ function sec4_12steps() {
       ["\uD83E\uDD16 Framework", "Chama dois agentes em paralelo: um compara plano com spec, outro checa coerencia interna. Devolve APPROVED, APPROVED_WITH_CORRECTIONS, NEEDS_REVISION ou NEEDS_HUMAN_REVIEW, com findings BLOCKING, NON-BLOCKING ou EDITORIAL. Quando aplicavel, inclui APPLICABLE_DELTA para orientar correcoes diretamente aplicaveis."],
       ["\u2705 Sinal de OK", "Plano APPROVED ou APPROVED_WITH_CORRECTIONS. O framework cria marker .plan-approved que libera o proximo passo. NEEDS_REVISION ou NEEDS_HUMAN_REVIEW nao liberam implementacao."],
     ]),
+    box("\uD83D\uDCA1 Quando o plano envolve integracao frontend/backend, APIs ou fluxos de mutacao, o /plan tambem antecipa riscos cross-cutting: matriz de erros, classificacao Security Regression Matrix e testes dedicados para middleware, handlers globais e controles de seguranca.", C.noteBg),
     warn("Portao mecanico: um hook BLOQUEIA criacao de codigo enquanto o plano nao for aprovado pelo /plan-review. Nao e sugestao \u2014 e impedimento real."),
     ...empty(),
 
@@ -427,7 +428,7 @@ function sec6_layers() {
     h2("\u2699\uFE0F Camada 1 \u2014 Regras (30+ rules)"),
     tbl(["Grupo", "Regras principais", "O que garantem"], [
       ["\uD83D\uDD10 Seguranca", "security, web-api-security, database-security, kubernetes-security", "Checklist de seguranca por area"],
-      ["\u2705 Qualidade", "code-review, structural-quality, testing, implementation-quality", "Criterios senior aplicados em revisao"],
+      ["\u2705 Qualidade", "code-review, structural-quality, testing, implementation-quality, integration-checklist", "Criterios senior, testes, padroes recorrentes e contratos de integracao"],
       ["\uD83D\uDCCB Spec e plano", "spec-quality, spec-creation-guide, plan-construction", "O que spec/plano pronto precisa ter"],
       ["\uD83C\uDFD7\uFE0F Estado", "state-management, state-sync, execution-tracking, context-loading", "Como rastrear fases e memoria"],
       ["\uD83E\uDD16 Agentes", "agent-contracts, review-quality", "Como agentes se comunicam"],
@@ -542,7 +543,7 @@ function sec9_rules() {
     ...empty(),
     tbl(["Grupo", "Regras principais", "O que garantem"], [
       ["\uD83D\uDD10 Seguranca", "security, web-api-security, database-security, kubernetes-security", "Checklists de seguranca por area"],
-      ["\u2705 Qualidade de codigo", "code-review, structural-quality, testing, implementation-quality", "Criterios senior aplicados em revisao"],
+      ["\u2705 Qualidade de codigo", "code-review, structural-quality, testing, implementation-quality, integration-checklist", "Criterios senior, testes, padroes recorrentes e contratos de integracao"],
       ["\uD83D\uDCCB Spec e plano", "spec-quality, spec-creation-guide, plan-construction", "O que uma spec/plano pronto precisa ter"],
       ["\uD83C\uDFD7\uFE0F Estado e observabilidade", "state-management, observability, performance", "Como lidar com estado, logs, performance"],
       ["\uD83C\uDFA8 Design e UI", "design-system-quality", "O que um bom Design System entrega"],
@@ -554,6 +555,8 @@ function sec9_rules() {
     ], [1400, 3800, CW - 5200]),
     ...empty(),
     note("Voce nunca precisa abrir uma regra manualmente. Quando um comando roda, ele ja sabe quais regras consultar. Se quiser entender o porque de alguma coisa, pode abrir a regra."),
+    box("\uD83D\uDCDA A rule implementation-quality.md cataloga 25 padroes recorrentes. Os mais recentes reforcam handlers terminais com diagnostico interno e validacao de shape para dados externos como JSON, cache, filas e APIs.", C.noteBg),
+    box("\uD83E\uDDEA Componentes cross-cutting, como middleware de seguranca, rate limiter, auth middleware e error handlers globais, precisam de teste dedicado do efeito observavel. Chamar um endpoint e receber 200 nao prova que o controle funcionou.", C.noteBg),
     pb()
   ];
 }
